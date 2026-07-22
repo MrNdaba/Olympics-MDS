@@ -1,14 +1,18 @@
 /* MDS seed — venues (§7), compound/gate routing (§8), operating hours (§10),
    master data, demo users, and a few demo bookings. All times are Dakar (UTC). */
+
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 
-const adapter = new PrismaBetterSqlite3({
-  url: process.env.DATABASE_URL ?? "file:./dev.db",
+import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaNeon } from "@prisma/adapter-neon";
+
+const adapter = new PrismaNeon({
+  connectionString: process.env.DATABASE_URL!,
 });
+
 const prisma = new PrismaClient({ adapter });
+
 
 const DAY_MS = 86_400_000;
 const utcDay = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d));
