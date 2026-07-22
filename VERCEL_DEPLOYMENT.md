@@ -1,39 +1,85 @@
-# Sign-in roles & credentials — MDS (Dakar 2026 YOG)
+# Vercel Deployment Guide (MDS)
 
-Accounts are **only created by an Administrator** — there is no self-registration (spec §4/§5).
-Running `npx prisma db seed` provisions one demo account per role.
+This document explains how to deploy MDS on Vercel and what to configure.
 
-All demo accounts share the same password (satisfies the 12-character staff policy):
+## 1) What was added
 
+- Deployment config: `vercel.json`
+- Build script: `npm run vercel-build` in `package.json`
+
+Current Vercel build flow:
+
+1. `npm ci`
+2. `npm run vercel-build`
+3. `npm run vercel-build` runs:
+   - `npx prisma generate`
+   - `next build`
+
+## 2) Important database note
+
+The current Prisma datasource provider in `prisma/schema.prisma` is `sqlite`.
+
+SQLite is fine for local development, but it is not suitable for persistent production data on Vercel serverless runtimes.
+
+Recommended production path:
+
+- Use a managed Postgres database (for example Vercel Postgres, Neon, Supabase, or RDS).
+- Switch Prisma datasource provider from `sqlite` to `postgresql`.
+- Regenerate Prisma client and run migrations for Postgres.
+
+If you deploy without moving to Postgres, treat that deployment as demo-only.
+
+## 3) Required environment variables
+
+Set these in Vercel Project Settings -> Environment Variables.
+
+Minimum:
+
+- `DATABASE_URL`
+
+Optional (email notifications):
+
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE` (`true` or `false`)
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM`
+
+## 4) One-time Vercel setup
+
+1. Import the Git repository into Vercel.
+2. Framework preset: Next.js.
+3. Root directory: project root (`/`).
+4. Build command should be auto-read from `vercel.json`.
+5. Add environment variables.
+6. Deploy.
+
+## 5) Post-deploy checks
+
+After the first successful deployment, verify:
+
+- Login flow works.
+- Booking pages load and submit correctly.
+- VLM dashboard pages load.
+- Any email/notification behavior expected in your environment.
+
+## 6) Optional CLI deploy
+
+You can deploy from local with Vercel CLI:
+
+```bash
+npm i -g vercel
+vercel login
+vercel
+vercel --prod
 ```
-Password1234!
-```
 
-## Demo accounts
+## 7) Suggested production hardening
 
-| Role | Email | Password | Assigned venue(s) |
-| --- | --- | --- | --- |
-| **Administrator** | `admin@mds.dev` | `Password1234!` | All (cross-venue) |
-| **VLM** (Venue Logistics Manager) | `vlm.dar@mds.dev` | `Password1234!` | Dakar Arena (DAR) |
-| **Supplier / Transporter** | `supplier@mds.dev` | `Password1234!` | — |
+Before production go-live, complete these steps:
 
-## Access per role
-
-- **Administrator** — manages users, venues and master data; has cross-venue VLM rights.
-  - Landing: `/admin/users`, `/admin/master-data`, `/admin/venues` (plus `/vlm/dashboard`, `/vlm`).
-- **VLM** — validates and monitors bookings **only for assigned venue(s)**. Server-side venue
-  scoping is enforced on every query and mutation.
-  - Landing: `/vlm` (bookings), `/vlm/dashboard` (venue load).
-- **Supplier / Transporter** — creates, amends and cancels their own delivery/collection bookings.
-  - Landing: `/supplier` (new booking + my bookings).
-
-## Sign-in flow
-
-Two steps: email + password, then a one-time code (OTP — 6 digits, 10-min validity). In
-non-production environments the OTP is surfaced at the sign-in prompt and no real messages are
-sent (D2/D7).
-
-French is the default language; every screen is available in EN via the language switcher.
-
-> **Security note:** these credentials are for local/demo use only. Never commit real credentials,
-> and never reuse the seed password in production.
+1. Migrate Prisma datasource to Postgres.
+2. Run Postgres migrations in CI/CD or a controlled release job.
+3. Keep SMTP credentials only in Vercel environment variables.
+4. Confirm logs do not expose secrets and match audit requirements in the spec.
