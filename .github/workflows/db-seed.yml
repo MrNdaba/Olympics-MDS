@@ -1,0 +1,36 @@
+name: DB Seed (manual, destructive)
+
+# Runs `prisma db seed` against Supabase. WIPES all data first (see prisma/seed.ts
+# reset()) then reloads venues/routing/operating hours/master data + 3 demo users.
+# Manual-only — never runs on push/PR — and requires typing WIPE to confirm, so it
+# can't fire by accident against a database that already has real bookings.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type WIPE to confirm: this deletes ALL data and reloads demo data'
+        required: true
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require explicit confirmation
+        if: ${{ github.event.inputs.confirm != 'WIPE' }}
+        run: |
+          echo "Confirmation input must be exactly 'WIPE'. Aborting without touching the database."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - run: npx prisma generate
+
+      - run: npx prisma db seed
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
