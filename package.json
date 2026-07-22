@@ -13,11 +13,11 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@prisma/adapter-better-sqlite3": "^7.8.0",
+    "@neondatabase/serverless": "^1.1.0",
+    "@prisma/adapter-neon": "^7.9.0",
     "@prisma/client": "^7.8.0",
     "@types/nodemailer": "^8.0.1",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.11.1",
     "dotenv": "^17.4.2",
     "next": "16.2.10",
     "nodemailer": "^9.0.3",

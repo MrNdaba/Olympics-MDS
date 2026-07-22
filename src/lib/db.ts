@@ -1,5 +1,5 @@
 import { PrismaClient } from "@/generated/prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaNeon } from "@prisma/adapter-neon";
 
 // Prisma 7 requires a driver adapter. SQLite now; swap this adapter (and the
 // schema datasource provider) for @prisma/adapter-pg to move to Postgres.
