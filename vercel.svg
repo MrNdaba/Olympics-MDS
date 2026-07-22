@@ -1,0 +1,223 @@
+// MDS — Master Delivery System · Prisma schema
+// SQLite now, Postgres-ready: NO enums, NO scalar arrays (see AGENTS.md).
+// String columns are constrained by TypeScript union types in src/lib/constants.ts.
+// To migrate to Postgres: change datasource `provider` to "postgresql", set a
+// Postgres DATABASE_URL, and run `prisma migrate dev`.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// Application users. Accounts are created only by Administrators (spec §4/§5).
+model User {
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  name               String
+  role               String // 'supplier' | 'vlm' | 'admin'  (Role)
+  phone              String?
+  otpChannel         String              @default("email") // 'email' | 'sms'
+  passwordHash       String
+  status             String              @default("active") // 'active' | 'locked' | 'deactivated'
+  mustChangePassword Boolean             @default(true)
+  failedAttempts     Int                 @default(0)
+  createdAt          DateTime            @default(now())
+  venueAssignments   VenueAssignment[]
+  bookings           Booking[]           @relation("BookingCreatedBy")
+  auditEntries       BookingAuditEntry[]
+  otpChallenges      OtpChallenge[]
+  sessions           Session[]
+}
+
+/// Server-side session (opaque token stored in an httpOnly cookie).
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime // absolute inactivity timeout (30 min, refreshed on activity)
+}
+
+/// One-time login code (6 digits, 10-min validity, single use) — D2/§5.
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash   String
+  channel    String // 'email' | 'sms'
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  consumedAt DateTime?
+}
+
+/// VLM ⇄ Venue assignment (venue scoping, spec §4).
+model VenueAssignment {
+  id      String @id @default(cuid())
+  userId  String
+  venueId String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venue   Venue  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, venueId])
+}
+
+model Venue {
+  id                         String            @id @default(cuid())
+  name                       String
+  siteCode                   String            @unique // 3-letter, e.g. DAR
+  city                       String
+  status                     String            @default("active") // 'active' | 'inactive'
+  bookingWindowOpen          Boolean           @default(true) // VLM/Admin toggle (§15.5)
+  defaultSlotDurationMinutes Int               @default(30)
+  operatingDays              OperatingDay[]
+  compounds                  Compound[]
+  gates                      Gate[]
+  bookings                   Booking[]
+  slotHolds                  SlotHold[]
+  assignments                VenueAssignment[]
+}
+
+/// Per-day opening hours. Absence or active=false = closed that day (D4).
+model OperatingDay {
+  id        String   @id @default(cuid())
+  venueId   String
+  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  date      DateTime // date at 00:00 Africa/Dakar (== UTC, no DST)
+  openTime  String // 'HH:mm'
+  closeTime String // 'HH:mm'
+  active    Boolean  @default(true)
+
+  @@unique([venueId, date])
+}
+
+model Compound {
+  id         String         @id @default(cuid())
+  venueId    String
+  venue      Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  department String // 'LOG' | 'FNB' | 'MKT' | 'OTHER'
+  label      String
+  routes     CompoundGate[]
+  bookings   Booking[]
+
+  @@unique([venueId, department, label])
+}
+
+model Gate {
+  id       String         @id @default(cuid())
+  venueId  String
+  venue    Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  label    String
+  routes   CompoundGate[]
+  bookings Booking[]
+
+  @@unique([venueId, label])
+}
+
+/// Allowed compound→gate combinations (routing table, spec §8).
+model CompoundGate {
+  id         String   @id @default(cuid())
+  compoundId String
+  gateId     String
+  compound   Compound @relation(fields: [compoundId], references: [id], onDelete: Cascade)
+  gate       Gate     @relation(fields: [gateId], references: [id], onDelete: Cascade)
+
+  @@unique([compoundId, gateId])
+}
+
+/// Capacity hold — exactly one vehicle per venue per slot, venue-wide (D8).
+/// A booking spanning N contiguous slots owns N SlotHold rows. The unique
+/// constraint on (venueId, slotStart) enforces atomic, race-safe reservation.
+model SlotHold {
+  id        String   @id @default(cuid())
+  venueId   String
+  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  slotStart DateTime
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, slotStart])
+}
+
+model Booking {
+  id                 String              @id @default(cuid())
+  reference          String              @unique // OLY-{SITE}-{NNNNNN}
+  refNumber          Int                 @unique // globally unique numeric, immutable (D1)
+  siteCode           String // current venue site code (updates on venue amendment)
+  type               String // 'delivery' | 'collection'  (BookingType)
+  status             String // 'PendingValidation' | 'Confirmed' | 'Cancelled' | 'Expired'
+  supplierName       String
+  supplierContact    String?
+  transporterName    String
+  transporterContact String
+  vehicleType        String
+  merchandiseType    String
+  packagingType      String?
+  quantity           String?
+  weightKg           Float?
+  volumeM3           Float?
+  venueId            String
+  venue              Venue               @relation(fields: [venueId], references: [id])
+  compoundId         String
+  compound           Compound            @relation(fields: [compoundId], references: [id])
+  gateId             String
+  gate               Gate                @relation(fields: [gateId], references: [id])
+  serviceDate        DateTime // date at 00:00 Africa/Dakar
+  slotStart          DateTime // merged window start (UTC)
+  slotEnd            DateTime // merged window end (UTC)
+  comments           String?
+  createdById        String
+  createdBy          User                @relation("BookingCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  holds              SlotHold[]
+  auditEntries       BookingAuditEntry[]
+
+  @@index([venueId, serviceDate])
+  @@index([status])
+}
+
+model BookingAuditEntry {
+  id             String   @id @default(cuid())
+  bookingId      String
+  booking        Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  timestamp      DateTime @default(now())
+  userId         String? // null = system
+  user           User?    @relation(fields: [userId], references: [id])
+  action         String // 'created' | 'amended' | 'statusChanged' | 'cancelled' | 'reinstated'
+  previousStatus String?
+  newStatus      String?
+  detail         String? // JSON blob: previous/new venue/date/slot
+  reason         String?
+}
+
+/// Stubbed notification channel (D7) — no real messages leave non-prod.
+model NotificationOutbox {
+  id        String   @id @default(cuid())
+  channel   String // 'email' | 'sms' | 'inApp'
+  recipient String
+  template  String
+  payload   String // JSON
+  status    String   @default("stubbed") // 'queued' | 'sent' | 'failed' | 'stubbed'
+  createdAt DateTime @default(now())
+}
+
+/// Admin-maintained drop-down sources (vehicle/merchandise/packaging/load unit).
+model MasterData {
+  id       String  @id @default(cuid())
+  category String // 'vehicleType' | 'merchandiseType' | 'packagingType' | 'loadUnit'
+  label    String
+  active   Boolean @default(true)
+
+  @@unique([category, label])
+}
+
+/// Single global counter backing the numeric part of booking references (D1).
+model ReferenceSequence {
+  id    Int @id @default(1)
+  value Int @default(0)
+}
