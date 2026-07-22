@@ -10,7 +10,7 @@ CREATE TABLE "User" (
     "status" TEXT NOT NULL DEFAULT 'active',
     "mustChangePassword" BOOLEAN NOT NULL DEFAULT true,
     "failedAttempts" INTEGER NOT NULL DEFAULT 0,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CreateTable
@@ -18,8 +18,8 @@ CREATE TABLE "Session" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "token" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "expiresAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP NOT NULL,
     CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -29,9 +29,9 @@ CREATE TABLE "OtpChallenge" (
     "userId" TEXT NOT NULL,
     "codeHash" TEXT NOT NULL,
     "channel" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "expiresAt" DATETIME NOT NULL,
-    "consumedAt" DATETIME,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP NOT NULL,
+    "consumedAt" TIMESTAMP,
     CONSTRAINT "OtpChallenge_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -58,7 +58,7 @@ CREATE TABLE "Venue" (
 CREATE TABLE "OperatingDay" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "venueId" TEXT NOT NULL,
-    "date" DATETIME NOT NULL,
+    "date" TIMESTAMP NOT NULL,
     "openTime" TEXT NOT NULL,
     "closeTime" TEXT NOT NULL,
     "active" BOOLEAN NOT NULL DEFAULT true,
@@ -95,7 +95,7 @@ CREATE TABLE "CompoundGate" (
 CREATE TABLE "SlotHold" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "venueId" TEXT NOT NULL,
-    "slotStart" DATETIME NOT NULL,
+    "slotStart" TIMESTAMP NOT NULL,
     "bookingId" TEXT NOT NULL,
     CONSTRAINT "SlotHold_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "SlotHold_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -117,18 +117,18 @@ CREATE TABLE "Booking" (
     "merchandiseType" TEXT NOT NULL,
     "packagingType" TEXT,
     "quantity" TEXT,
-    "weightKg" REAL,
-    "volumeM3" REAL,
+    "weightKg" DOUBLE PRECISION,
+    "volumeM3" DOUBLE PRECISION,
     "venueId" TEXT NOT NULL,
     "compoundId" TEXT NOT NULL,
     "gateId" TEXT NOT NULL,
-    "serviceDate" DATETIME NOT NULL,
-    "slotStart" DATETIME NOT NULL,
-    "slotEnd" DATETIME NOT NULL,
+    "serviceDate" TIMESTAMP NOT NULL,
+    "slotStart" TIMESTAMP NOT NULL,
+    "slotEnd" TIMESTAMP NOT NULL,
     "comments" TEXT,
     "createdById" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP NOT NULL,
     CONSTRAINT "Booking_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "Booking_compoundId_fkey" FOREIGN KEY ("compoundId") REFERENCES "Compound" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "Booking_gateId_fkey" FOREIGN KEY ("gateId") REFERENCES "Gate" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -139,7 +139,7 @@ CREATE TABLE "Booking" (
 CREATE TABLE "BookingAuditEntry" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "bookingId" TEXT NOT NULL,
-    "timestamp" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "timestamp" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "userId" TEXT,
     "action" TEXT NOT NULL,
     "previousStatus" TEXT,
@@ -158,7 +158,7 @@ CREATE TABLE "NotificationOutbox" (
     "template" TEXT NOT NULL,
     "payload" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'stubbed',
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CreateTable
@@ -171,7 +171,7 @@ CREATE TABLE "MasterData" (
 
 -- CreateTable
 CREATE TABLE "ReferenceSequence" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT DEFAULT 1,
+    "id" SERIAL NOT NULL PRIMARY KEY,
     "value" INTEGER NOT NULL DEFAULT 0
 );
 
