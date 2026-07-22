@@ -10,6 +10,11 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Migrations (migrate dev/deploy, db seed via CLI) must use a DIRECT connection.
+    // Supabase's transaction pooler (port 6543) cannot run DDL/advisory locks, so point
+    // the CLI at DIRECT_URL (Supabase "Session" pooler / direct connection). The app
+    // runtime instead connects through DATABASE_URL (the transaction pooler) via the
+    // pg driver adapter in src/lib/db.ts. Falls back to DATABASE_URL for local dev.
+    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
   },
 });

@@ -1,130 +1,101 @@
-# Vercel Deployment Guide (MDS)
+# Vercel Deployment Guide (MDS) — Supabase Postgres
 
-This document explains how to deploy MDS on Vercel and what to configure.
+This app runs on **Vercel** (Next.js) with a **Supabase Postgres** database accessed through
+**Prisma** (using the `@prisma/adapter-pg` driver adapter). Supabase is used purely as a database —
+no Supabase Auth/SDK. Authentication is the app's own bcrypt + server-session implementation.
 
-## 1) What was added
+## 1) How the build works
 
-- Deployment config: `vercel.json`
-- Build script: `npm run vercel-build` in `package.json`
+`vercel.json` sets the build command to `npm run vercel-build`, which runs:
 
-Current Vercel build flow:
-
-1. `npm ci`
-2. `npm run vercel-build`
-3. `npm run vercel-build` runs:
-   - `npx prisma generate`
-   - **`npx prisma migrate deploy`** ⚠️ **CRITICAL: Creates all tables on first deploy**
-   - `next build`
-
-**IMPORTANT:** Without the `prisma migrate deploy` step, the database remains empty and all queries will fail with 500 errors.
-
-## 2) Database status
-
-✅ **Postgres migration already completed:**
-
-- Prisma datasource provider in `prisma/schema.prisma` is already set to `postgresql`
-- Neon adapter is configured in `src/lib/db.ts` for serverless connections
-- 2 migrations are ready to deploy
-
-**Remaining action:** When you deploy to Vercel with `DATABASE_URL` set to your Neon connection string, the `vercel-build` script will automatically run `npx prisma migrate deploy`, which will:
-1. Create all required tables
-2. Apply all migrations (init + vlm_venue_management)
-3. Seed initial data (if Prisma seed is configured)
-
-After first deploy, verify the Neon database via Neon console or `npx prisma studio` to confirm tables were created.
-
-## 3) Required environment variables
-
-Set these in Vercel Project Settings -> Environment Variables.
-
-**CRITICAL — Must be set before first deploy:**
-
-- `DATABASE_URL` — Your Neon connection string (format: `postgresql://user:pass@ep-xxxx.neon.tech/dbname?sslmode=require`)
-
-**After migrations run and tables are created, you must seed the database with venues and demo data.**
-
-Optional (email notifications):
-
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_SECURE` (`true` or `false`)
-- `SMTP_USER`
-- `SMTP_PASS`
-- `SMTP_FROM`
-
-## 4) One-time Vercel setup
-
-1. Import the Git repository into Vercel.
-2. Framework preset: Next.js.
-3. Root directory: project root (`/`).
-4. Build command: auto-reads from `vercel.json` → runs `npm run vercel-build` which now includes `prisma migrate deploy`.
-5. **Set `DATABASE_URL` environment variable** (your Neon connection string).
-6. Deploy.
-
-## 5) First-deploy post-setup: Seed the database
-
-After first deployment completes and migrations run, the Neon database will have empty tables. You must seed it with venues, operating days, and demo users:
-
-**Option A: Seed from local (recommended for first setup)**
-
-```bash
-DATABASE_URL="your-neon-connection-string" npx prisma db seed
 ```
-7) Optional CLI deploy
-
-You can deploy from local with Vercel CLI:
-
-```bash
-npm i -g vercel
-vercel login
-vercel
-vercel --prod
+npx prisma generate      # regenerate the Prisma client (src/generated is gitignored)
+npx prisma migrate deploy # apply prisma/migrations/** to the database (creates tables)
+next build
 ```
 
-(Ensure `DATABASE_URL` is set in your Vercel project settings before deploying.)
+`prisma migrate deploy` is what creates every table on the first deploy. Without applied
+migrations the database is empty and all queries fail with 500s.
 
-## 8) Troubleshooting Neon connection
+## 2) The two connection strings (IMPORTANT)
 
-If you see a 500 error during login after deploying:
+Supabase exposes two pooled connection strings (Dashboard → **Project Settings → Database →
+Connection string**). Prisma needs **both**, for different jobs:
 
-1. **Check `DATABASE_URL` is set** in Vercel Project Settings.
-2. **Check Neon database exists** in Neon console.
-3. **Verify migrations ran** during build:
-   - Check Vercel build logs for `prisma migrate deploy` output.
-   - Check Neon console: `User`, `Venue`, `Session` tables should exist.
-4. **If tables are missing**, the migration failed. Re-run build or manually run:
-   ```bash
-   DATABASE_URL="your-neon-url" npx prisma migrate deploy
-   ```
-5. **If tables exist but login still fails**, check Vercel function logs for the full error (requires Vercel Pro or higher).
+| Env var        | Supabase mode         | Host / port                        | Used by                          |
+| -------------- | --------------------- | ---------------------------------- | -------------------------------- |
+| `DATABASE_URL` | **Transaction** pooler | `...pooler.supabase.com:6543`      | App runtime (serverless queries) |
+| `DIRECT_URL`   | **Session** pooler     | `...pooler.supabase.com:5432`      | `prisma migrate` / `db seed`     |
 
-## 9) Suggested production hardening
+- `DATABASE_URL` (port **6543**) — append `?pgbouncer=true&connection_limit=1`. Read by the pg
+  adapter in `src/lib/db.ts`.
+- `DIRECT_URL` (port **5432**) — no `pgbouncer` flag. Read by `prisma.config.ts` for the CLI.
+  DDL and migration advisory locks cannot run through the transaction pooler, so migrations
+  **must** use this session-mode connection.
 
-Before production go-live, complete these steps:
+> Both use the format `postgresql://postgres.<project-ref>:<db-password>@aws-0-<region>.pooler.supabase.com:<port>/postgres`.
+> Do **not** use the `db.<ref>.supabase.co` direct host on Vercel — it is IPv6-only and Vercel
+> cannot reach it. Always use the `pooler.supabase.com` hosts above.
 
-1. ✅ Postgres datasource is already configured.
-2. ✅ Migrations are automatically deployed via build script.
-3. Seed production database with venues, master data, and initial users (see §5).
-4. Keep SMTP credentials only in Vercel environment variables.
-5 VLM dashboard pages load.
-- Any email/notification behavior expected in your environment.
+## 3) Required environment variables (Vercel → Settings → Environment Variables)
 
-## 6) Optional CLI deploy
+Set for **Production** (and Preview if you use it):
 
-You can deploy from local with Vercel CLI:
+- `DATABASE_URL` — transaction pooler string (port 6543, `?pgbouncer=true&connection_limit=1`)
+- `DIRECT_URL` — session pooler string (port 5432)
+
+Optional (email notifications, otherwise stubbed to the NotificationOutbox):
+
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
+
+## 4) One-time setup
+
+1. Import the Git repository into Vercel. Framework preset: **Next.js**. Root: project root.
+2. Build command auto-reads from `vercel.json` → `npm run vercel-build`.
+3. Set `DATABASE_URL` and `DIRECT_URL` (section 3) **before** the first deploy.
+4. Deploy. The build runs `migrate deploy` and creates all tables.
+
+## 5) Seed the database (after first deploy)
+
+Migrations create empty tables. Load venues (§7), routing (§8), operating hours (§10), master
+data, and demo users by running the seed once against Supabase — from your local machine (the
+seed uses `DIRECT_URL`):
 
 ```bash
-npm i -g vercel
-vercel login
-vercel
-vercel --prod
+# .env already contains DATABASE_URL + DIRECT_URL
+npx prisma db seed
 ```
 
-## 7) Suggested production hardening
+Verify with `npx prisma studio` or the Supabase Table Editor that `User`, `Venue`, `Session`,
+etc. exist and are populated.
 
-Before production go-live, complete these steps:
+## 6) Local development
 
-1. Migrate Prisma datasource to Postgres.
-2. Run Postgres migrations in CI/CD or a controlled release job.
-3. Keep SMTP credentials only in Vercel environment variables.
-4. Confirm logs do not expose secrets and match audit requirements in the spec.
+`.env` (gitignored) holds both connection strings. Then:
+
+```bash
+npx prisma migrate deploy   # or `migrate dev` when changing the schema
+npx prisma db seed
+npm run dev
+```
+
+## 7) Troubleshooting
+
+- **500s / "relation does not exist"** → migrations didn't apply. Check the Vercel build log for
+  the `prisma migrate deploy` output. Re-run locally: `npx prisma migrate deploy`.
+- **`P1001 Can't reach database server`** → wrong host/port or IP restrictions. Use the
+  `pooler.supabase.com` hosts, not `db.<ref>.supabase.co`. Confirm the Supabase project is not
+  paused.
+- **Migrations hang or error on advisory lock** → you pointed `DIRECT_URL` at the 6543 transaction
+  pooler. It must be the 5432 session pooler.
+- **`prepared statement already exists` at runtime** → `DATABASE_URL` is missing
+  `?pgbouncer=true`. Add it.
+- **Auth/user-facing errors after tables exist** → the database wasn't seeded (section 5).
+
+## 8) Security notes
+
+- Never commit `.env` (it is gitignored via `.env*`). Set secrets only in Vercel env vars.
+- Rotate the Supabase DB password if it has been shared in plaintext (Dashboard → Database →
+  Reset database password), then update `DATABASE_URL`/`DIRECT_URL` locally and in Vercel.
+</content>
+</invoke>
