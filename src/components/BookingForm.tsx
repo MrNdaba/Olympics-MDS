@@ -49,6 +49,17 @@ const card: React.CSSProperties = {
   padding: "22px 24px",
 };
 
+/** Red asterisk marking a mandatory field — the visual counterpart to the
+ *  grey "(optional)" tag used on optional ones, so required fields are
+ *  signalled just as explicitly. */
+function RequiredMark({ t }: { t: Dict }) {
+  return (
+    <span style={{ color: "var(--st-cancelled-text)" }} title={t.requiredField} aria-label={t.requiredField}>
+      *
+    </span>
+  );
+}
+
 export function BookingForm({
   t,
   lang,
@@ -163,7 +174,6 @@ export function BookingForm({
     !!sel &&
     !!supplierContact &&
     !!transporterName &&
-    !!transporterContact &&
     !pending;
 
   function submit() {
@@ -246,7 +256,9 @@ export function BookingForm({
             />
           </div>
           <div>
-            <label style={label}>{t.supplierPhone}</label>
+            <label style={label}>
+              {t.supplierPhone} <RequiredMark t={t} />
+            </label>
             <PhoneInput value={supplierContact} onChange={setSupplierContact} />
           </div>
           <div>
@@ -254,7 +266,9 @@ export function BookingForm({
             <input value={transporterName} onChange={(e) => setTransporterName(e.target.value)} style={control} />
           </div>
           <div>
-            <label style={label}>{t.transporterPhone}</label>
+            <label style={label}>
+              {t.transporterPhone} <span style={{ color: "#9AA7B2" }}>{t.optional}</span>
+            </label>
             <PhoneInput value={transporterContact} onChange={setTransporterContact} />
           </div>
           <div>
