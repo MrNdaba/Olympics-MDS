@@ -20,7 +20,7 @@ async function authorize(bookingId: string, user: SessionUser) {
 
 export interface AmendActionInput {
   type: BookingType;
-  supplierContact?: string;
+  supplierContact: string;
   transporterName: string;
   transporterContact: string;
   vehicleType: string;

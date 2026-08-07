@@ -21,7 +21,7 @@ export function formatReference(siteCode: string, refNumber: number): string {
 export interface CreateBookingInput {
   type: BookingType;
   supplierName: string;
-  supplierContact?: string;
+  supplierContact: string;
   transporterName: string;
   transporterContact: string;
   vehicleType: string;
@@ -43,6 +43,10 @@ export class BookingError extends Error {}
 
 /** Create a booking with atomic, race-safe slot reservation (spec §9, §11, D8). */
 export async function createBooking(input: CreateBookingInput, user: SessionUser) {
+  if (!input.supplierContact || !input.supplierContact.trim()) {
+    throw new BookingError("Supplier phone number is required.");
+  }
+
   const venue = await prisma.venue.findUnique({ where: { id: input.venueId } });
   if (!venue || venue.status !== "active") {
     throw new BookingError("Venue is not active.");
@@ -435,7 +439,7 @@ export async function reinstateBooking(bookingId: string, user: SessionUser, rea
 
 export interface AmendBookingInput {
   type: BookingType;
-  supplierContact?: string;
+  supplierContact: string;
   transporterName: string;
   transporterContact: string;
   vehicleType: string;
@@ -463,6 +467,10 @@ export async function amendBooking(
   user: SessionUser,
   input: AmendBookingInput,
 ) {
+  if (!input.supplierContact || !input.supplierContact.trim()) {
+    throw new BookingError("Supplier phone number is required.");
+  }
+
   const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
   if (!booking) throw new BookingError("Booking not found.");
   if (!ACTIVE_STATUSES.includes(booking.status as BookingStatus)) {

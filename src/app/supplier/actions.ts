@@ -40,7 +40,7 @@ export async function getSlots(
 
 export interface CreateBookingActionInput {
   type: BookingType;
-  supplierContact?: string;
+  supplierContact: string;
   transporterName: string;
   transporterContact: string;
   vehicleType: string;

@@ -161,6 +161,7 @@ export function BookingForm({
     !!compoundId &&
     !!effectiveGateId &&
     !!sel &&
+    !!supplierContact &&
     !!transporterName &&
     !!transporterContact &&
     !pending;
@@ -245,9 +246,7 @@ export function BookingForm({
             />
           </div>
           <div>
-            <label style={label}>
-              {t.supplierPhone} <span style={{ color: "#9AA7B2" }}>{t.optional}</span>
-            </label>
+            <label style={label}>{t.supplierPhone}</label>
             <PhoneInput value={supplierContact} onChange={setSupplierContact} />
           </div>
           <div>

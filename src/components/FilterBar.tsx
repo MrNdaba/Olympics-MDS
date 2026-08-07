@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import type { Dict } from "@/lib/i18n";
+import { DateRangeFilter } from "./DateRangeFilter";
 
 const chip: React.CSSProperties = {
   height: 32,
@@ -82,14 +83,7 @@ export function FilterBar({
         <option value="delivery">{t.delivery}</option>
         <option value="collection">{t.collection}</option>
       </select>
-      <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#5A6B7C" }}>
-        {t.fFrom}
-        <input type="date" defaultValue={params.get("from") ?? ""} onChange={(e) => update("from", e.target.value)} style={chip} />
-      </label>
-      <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#5A6B7C" }}>
-        {t.fTo}
-        <input type="date" defaultValue={params.get("to") ?? ""} onChange={(e) => update("to", e.target.value)} style={chip} />
-      </label>
+      <DateRangeFilter t={t} basePath="/vlm" />
       <span
         style={{
           marginLeft: "auto",

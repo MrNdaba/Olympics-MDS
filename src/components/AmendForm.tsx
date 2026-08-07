@@ -135,7 +135,7 @@ export function AmendForm({
   }
 
   const totalMinutes = sel ? sel.end - sel.start : 0;
-  const canSubmit = !!venueId && !!compoundId && !!effectiveGateId && !!sel && !!transporterName && !!transporterContact && !pending;
+  const canSubmit = !!venueId && !!compoundId && !!effectiveGateId && !!sel && !!supplierContact && !!transporterName && !!transporterContact && !pending;
 
   function submit() {
     if (!sel) return;
@@ -198,7 +198,7 @@ export function AmendForm({
             <input readOnly value={supplierName} style={{ ...control, background: "#F4F6F8", border: "1px solid #E3E9EF", color: "#5A6B7C" }} />
           </div>
           <div>
-            <label style={label}>{t.supplierPhone} <span style={{ color: "#9AA7B2" }}>{t.optional}</span></label>
+            <label style={label}>{t.supplierPhone}</label>
             <PhoneInput value={supplierContact} onChange={setSupplierContact} />
           </div>
           <div>
