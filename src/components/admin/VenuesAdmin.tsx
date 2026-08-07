@@ -6,7 +6,7 @@ import type { Dict } from "@/lib/i18n";
 import {
   createVenueAction,
   setVenueStatusAction,
-  updateVenueSlotDurationAction,
+  updateVenueAction,
 } from "@/app/admin/actions";
 
 export interface VenueRow {
@@ -36,6 +36,40 @@ export function VenuesAdmin({ t, venues }: { t: Dict; venues: VenueRow[] }) {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
+  // Edit-venue modal state.
+  const [editing, setEditing] = useState<VenueRow | null>(null);
+  const [eName, setEName] = useState("");
+  const [eCity, setECity] = useState("");
+  const [eSlotDuration, setESlotDuration] = useState(30);
+  const [eError, setEError] = useState<string | null>(null);
+
+  function openEdit(v: VenueRow) {
+    setEditing(v);
+    setEName(v.name);
+    setECity(v.city);
+    setESlotDuration(v.slotDuration);
+    setEError(null);
+  }
+
+  function saveEdit() {
+    if (!editing) return;
+    setEError(null);
+    startTransition(async () => {
+      const res = await updateVenueAction({
+        venueId: editing.id,
+        name: eName,
+        city: eCity,
+        slotDuration: eSlotDuration,
+      });
+      if (res.ok) {
+        setEditing(null);
+        router.refresh();
+      } else {
+        setEError(res.error ?? "Error");
+      }
+    });
+  }
+
   function submit() {
     setError(null);
     setOk(null);
@@ -59,15 +93,6 @@ export function VenuesAdmin({ t, venues }: { t: Dict; venues: VenueRow[] }) {
     startTransition(async () => {
       await setVenueStatusAction(v.id, next);
       router.refresh();
-    });
-  }
-
-  function changeDuration(v: VenueRow, minutes: number) {
-    if (minutes === v.slotDuration) return;
-    startTransition(async () => {
-      const res = await updateVenueSlotDurationAction(v.id, minutes);
-      if (!res.ok) setError(res.error ?? "Error");
-      else router.refresh();
     });
   }
 
@@ -119,29 +144,58 @@ export function VenuesAdmin({ t, venues }: { t: Dict; venues: VenueRow[] }) {
                 <td style={td}>{v.name}</td>
                 <td style={{ ...td, fontFamily: "var(--font-mono)", fontWeight: 600 }}>{v.siteCode}</td>
                 <td style={td}>{v.city}</td>
-                <td style={td}>
-                  <input
-                    type="number"
-                    min={5}
-                    max={240}
-                    step={5}
-                    defaultValue={v.slotDuration}
-                    disabled={pending}
-                    onBlur={(e) => changeDuration(v, Number(e.target.value))}
-                    style={{ ...control, width: 74, height: 30 }}
-                  />
-                </td>
+                <td style={td}>{v.slotDuration}</td>
                 <td style={td}>{v.status === "active" ? t.active : t.inactive}</td>
                 <td style={{ ...td, textAlign: "right" }}>
-                  <button type="button" disabled={pending} onClick={() => toggleStatus(v)} style={{ background: "none", border: "none", color: v.status === "active" ? "#B3261E" : "var(--st-confirmed-text)", fontWeight: 600, fontSize: 12 }}>
-                    {v.status === "active" ? t.deactivate : t.activate}
-                  </button>
+                  <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+                    <button type="button" disabled={pending} onClick={() => openEdit(v)} style={{ background: "none", border: "none", color: "var(--blue)", fontWeight: 600, fontSize: 12 }}>
+                      {t.edit}
+                    </button>
+                    <button type="button" disabled={pending} onClick={() => toggleStatus(v)} style={{ background: "none", border: "none", color: v.status === "active" ? "#B3261E" : "var(--st-confirmed-text)", fontWeight: 600, fontSize: 12 }}>
+                      {v.status === "active" ? t.deactivate : t.activate}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Edit venue modal */}
+      {editing && (
+        <div
+          onClick={() => !pending && setEditing(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,32,.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: 420, maxHeight: "90vh", overflowY: "auto" }}>
+            <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{t.editVenue}</h2>
+            <p style={{ fontSize: 11.5, color: "#5A6B7C", fontFamily: "var(--font-mono)", marginBottom: 14 }}>{editing.siteCode}</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div><label style={labelS}>{t.name}</label><input value={eName} onChange={(e) => setEName(e.target.value)} style={control} /></div>
+              <div>
+                <label style={labelS}>{t.siteCode}</label>
+                <input readOnly value={editing.siteCode} className="mono" style={{ ...control, background: "#F4F6F8", border: "1px solid #E3E9EF", color: "#5A6B7C" }} />
+                <p style={{ fontSize: 10.5, color: "#9AA7B2", marginTop: 4 }}>{t.siteCodeLocked}</p>
+              </div>
+              <div><label style={labelS}>{t.city}</label><input value={eCity} onChange={(e) => setECity(e.target.value)} style={control} /></div>
+              <div>
+                <label style={labelS}>{t.slotDuration}</label>
+                <input type="number" min={5} max={240} step={5} value={eSlotDuration} onChange={(e) => setESlotDuration(Number(e.target.value))} style={control} />
+              </div>
+              {eError && <p style={{ color: "var(--st-cancelled-text)", fontSize: 12 }}>{eError}</p>}
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button type="button" disabled={pending} onClick={() => setEditing(null)} style={{ flex: 1, height: 40, borderRadius: 7, border: "1px solid #C7D1DA", background: "#fff", color: "#33475B", fontWeight: 600, fontSize: 13 }}>
+                  {t.cancel}
+                </button>
+                <button type="button" disabled={pending} onClick={saveEdit} style={{ flex: 1, height: 40, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 13 }}>
+                  {t.save}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

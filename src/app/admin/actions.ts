@@ -200,12 +200,37 @@ export async function setVenueStatusAction(venueId: string, status: "active" | "
   return { ok: true };
 }
 
-export async function updateVenueSlotDurationAction(venueId: string, minutes: number): Promise<Result> {
+export interface UpdateVenueInput {
+  venueId: string;
+  name: string;
+  city: string;
+  slotDuration: number;
+}
+
+// Site code is intentionally not editable here — it is embedded verbatim in
+// every existing booking reference for this venue (OLY-{SITE}-{NNNNNN}), and
+// renaming it after creation would desync those references from the venue's
+// current code (see D1 in AGENTS.md). Retiring a code means deactivating the
+// venue and creating a new one, not renaming this one.
+export async function updateVenueAction(input: UpdateVenueInput): Promise<Result> {
   const admin = await requireRole("admin");
-  const duration = Number(minutes);
-  if (duration < 5 || duration > 240) return { ok: false, error: "Slot duration must be 5–240 min." };
-  await prisma.venue.update({ where: { id: venueId }, data: { defaultSlotDurationMinutes: duration } });
-  log.info("admin.venue_slot_duration", { by: admin.id, venueId, duration });
+  const name = input.name.trim();
+  const city = input.city.trim();
+  if (!name || !city) return { ok: false, error: "Name and city are required." };
+  const duration = Number(input.slotDuration);
+  if (!Number.isFinite(duration) || duration < 5 || duration > 240) {
+    return { ok: false, error: "Slot duration must be 5–240 min." };
+  }
+
+  const venue = await prisma.venue.findUnique({ where: { id: input.venueId } });
+  if (!venue) return { ok: false, error: "Not found." };
+
+  await prisma.venue.update({
+    where: { id: input.venueId },
+    data: { name, city, defaultSlotDurationMinutes: duration },
+  });
+  log.info("admin.venue_updated", { by: admin.id, venueId: input.venueId });
   revalidatePath("/admin/venues");
+  revalidatePath("/vlm/venue");
   return { ok: true };
 }
