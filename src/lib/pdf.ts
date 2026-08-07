@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { getDict, type Lang } from "./i18n";
 import { formatLongDate, hmOf } from "./time";
 import type { BookingStatus } from "./constants";
@@ -42,6 +42,47 @@ const STATUS_LABEL: Record<BookingStatus, "stConfirmed" | "stPending" | "stCance
   Expired: "stExpired",
 };
 
+// pdf-lib's standard fonts (Helvetica, Courier) only support WinAnsi
+// (Latin-1 + CP1252 extras) encoding. Most accented/typographic characters
+// used across the app are fine, but a few — most notably the "→" used
+// everywhere a merged slot window is rendered ("10:00 → 11:30", spec §9) —
+// are not, and pdf-lib throws synchronously the moment such a character is
+// measured or drawn. That crashed every PDF export that included a slot
+// window. Known offenders get a readable substitute; anything else
+// unencodable is dropped rather than allowed to blow up the whole export.
+const PDF_CHAR_REPLACEMENTS: Record<string, string> = {
+  "→": "->",
+  "←": "<-",
+  "⇒": "=>",
+  "⇐": "<=",
+};
+
+function makePdfSafe(font: PDFFont) {
+  const cache = new Map<string, string>();
+  return function pdfSafe(value: string): string {
+    const cached = cache.get(value);
+    if (cached !== undefined) return cached;
+    let safeValue = value;
+    try {
+      font.widthOfTextAtSize(value, 1);
+    } catch {
+      safeValue = Array.from(value)
+        .map((ch) => {
+          if (ch in PDF_CHAR_REPLACEMENTS) return PDF_CHAR_REPLACEMENTS[ch];
+          try {
+            font.widthOfTextAtSize(ch, 1);
+            return ch;
+          } catch {
+            return "?";
+          }
+        })
+        .join("");
+    }
+    cache.set(value, safeValue);
+    return safeValue;
+  };
+}
+
 /** Build the branded booking-confirmation PDF (spec §14 field set). */
 export async function buildConfirmationPdf(data: ConfirmationData, lang: Lang): Promise<Uint8Array> {
   const t = getDict(lang);
@@ -51,6 +92,23 @@ export async function buildConfirmationPdf(data: ConfirmationData, lang: Lang): 
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const mono = await pdf.embedFont(StandardFonts.Courier);
   const monoBold = await pdf.embedFont(StandardFonts.CourierBold);
+
+  const safe = makePdfSafe(font);
+  data = {
+    ...data,
+    venueName: safe(data.venueName),
+    compoundLabel: safe(data.compoundLabel),
+    gateLabel: safe(data.gateLabel),
+    supplierName: safe(data.supplierName),
+    supplierContact: data.supplierContact ? safe(data.supplierContact) : data.supplierContact,
+    transporterName: safe(data.transporterName),
+    transporterContact: safe(data.transporterContact),
+    vehicleType: safe(data.vehicleType),
+    merchandiseType: safe(data.merchandiseType),
+    packagingType: data.packagingType ? safe(data.packagingType) : data.packagingType,
+    quantity: data.quantity ? safe(data.quantity) : data.quantity,
+    comments: data.comments ? safe(data.comments) : data.comments,
+  };
 
   const W = 595;
   const margin = 40;
@@ -186,6 +244,24 @@ export async function buildBookingListPdf(
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const mono = await pdf.embedFont(StandardFonts.Courier);
+
+  const safe = makePdfSafe(font);
+  rows = rows.map((r) => ({
+    reference: r.reference,
+    bookingType: safe(r.bookingType),
+    company: safe(r.company),
+    date: r.date,
+    window: safe(r.window),
+    venue: safe(r.venue),
+    transporter: safe(r.transporter),
+    transporterContact: safe(r.transporterContact),
+    compound: safe(r.compound),
+    gate: safe(r.gate),
+    vehicleType: safe(r.vehicleType),
+    merchandiseType: safe(r.merchandiseType),
+    status: r.status,
+  }));
+  meta = { ...meta, title: safe(meta.title), subtitle: safe(meta.subtitle) };
 
   const W = 842;
   const H = 595;
