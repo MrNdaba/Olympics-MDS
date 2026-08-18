@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Dict, Lang } from "@/lib/i18n";
 import { translateMasterData } from "@/lib/i18n";
@@ -91,7 +91,10 @@ export function AmendForm({
   const [gateId, setGateId] = useState(initial.gateId);
 
   const [slotState, setSlotState] = useState<{ open: boolean; openTime?: string; closeTime?: string; slots: SlotDto[] }>({ open: false, slots: [] });
-  const [sel, setSel] = useState<{ start: number; end: number } | null>({ start: initial.startMinutes, end: initial.endMinutes });
+  // Selected slots, keyed by startMinutes — see BookingForm for the full
+  // rationale. Seeded once from the booking's current window below.
+  const [sel, setSel] = useState<Set<number>>(new Set());
+  const seededInitialSel = useRef(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const effectiveRouting = venueId ? routing : [];
@@ -117,28 +120,51 @@ export function AmendForm({
     getSlots(venueId, dateIso).then((next) => {
       if (!active) return;
       setSlotState(next);
+      // Seed the selection from the booking's current window the first time
+      // its own venue/date load in — later reloads (user changing venue or
+      // date) must not re-seed over their in-progress selection.
+      if (!seededInitialSel.current && venueId === initial.venueId && dateIso === initial.dateIso) {
+        seededInitialSel.current = true;
+        const seed = next.slots
+          .filter((s) => s.startMinutes >= initial.startMinutes && s.endMinutes <= initial.endMinutes)
+          .map((s) => s.startMinutes);
+        setSel(new Set(seed));
+      }
     });
     return () => {
       active = false;
     };
-  }, [venueId, dateIso]);
+  }, [venueId, dateIso, initial.venueId, initial.dateIso, initial.startMinutes, initial.endMinutes]);
 
+  /** Toggle a single slot in/out of the selection — see BookingForm. */
   function clickSlot(s: SlotDto) {
     if (!s.available) return;
-    if (!sel) return setSel({ start: s.startMinutes, end: s.endMinutes });
-    if (sel.start === s.startMinutes && sel.end === s.endMinutes) return setSel(null);
-    const lo = Math.min(sel.start, s.startMinutes);
-    const hi = Math.max(sel.end, s.endMinutes);
-    const within = slotState.slots.filter((x) => x.startMinutes >= lo && x.endMinutes <= hi);
-    if (within.every((x) => x.available) && hi - lo <= MAX_BOOKING_MINUTES) setSel({ start: lo, end: hi });
-    else setSel({ start: s.startMinutes, end: s.endMinutes });
+    setSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(s.startMinutes)) next.delete(s.startMinutes);
+      else next.add(s.startMinutes);
+      return next;
+    });
   }
 
-  const totalMinutes = sel ? sel.end - sel.start : 0;
-  const canSubmit = !!venueId && !!compoundId && !!effectiveGateId && !!sel && !!supplierContact && !!transporterName && !!transporterContact && !pending;
+  const selectedSlots = slotState.slots
+    .filter((s) => sel.has(s.startMinutes))
+    .sort((a, b) => a.startMinutes - b.startMinutes);
+  const isContiguous = selectedSlots.every(
+    (s, i) => i === 0 || s.startMinutes === selectedSlots[i - 1].endMinutes,
+  );
+  const selWindow =
+    selectedSlots.length > 0
+      ? { start: selectedSlots[0].startMinutes, end: selectedSlots[selectedSlots.length - 1].endMinutes }
+      : null;
+  const withinCap = !!selWindow && selWindow.end - selWindow.start <= MAX_BOOKING_MINUTES;
+  const selectionValid = selectedSlots.length > 0 && isContiguous && withinCap;
+
+  const totalMinutes = selWindow ? selWindow.end - selWindow.start : 0;
+  const canSubmit = !!venueId && !!compoundId && !!effectiveGateId && selectionValid && !!supplierContact && !!transporterName && !!transporterContact && !pending;
 
   function submit() {
-    if (!sel) return;
+    if (!selectionValid || !selWindow) return;
     setResult(null);
     startTransition(async () => {
       const res = await amendBookingAction(bookingId, {
@@ -156,8 +182,8 @@ export function AmendForm({
         compoundId,
         gateId: effectiveGateId,
         dateIso,
-        slotStartMinutes: sel.start,
-        slotEndMinutes: sel.end,
+        slotStartMinutes: selWindow.start,
+        slotEndMinutes: selWindow.end,
         comments,
       });
       if (res.ok) {
@@ -249,7 +275,7 @@ export function AmendForm({
                 setCompoundId("");
                 setGateId("");
                 setSlotState({ open: false, slots: [] });
-                setSel(null);
+                setSel(new Set());
               }}
               style={{ ...control, borderColor: venueId ? "var(--blue)" : "#C7D1DA" }}
             >
@@ -265,7 +291,7 @@ export function AmendForm({
               onChange={(e) => {
                 setDateIso(e.target.value);
                 setSlotState({ open: false, slots: [] });
-                setSel(null);
+                setSel(new Set());
               }}
               style={{ ...control, borderColor: dateIso ? "var(--blue)" : "#C7D1DA" }}
             />
@@ -320,7 +346,7 @@ export function AmendForm({
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7 }}>
               {slotState.slots.map((s) => {
-                const selected = sel && s.startMinutes >= sel.start && s.endMinutes <= sel.end;
+                const selected = sel.has(s.startMinutes);
                 const base: React.CSSProperties = { height: 32, borderRadius: 6, fontFamily: "var(--font-mono)", fontSize: 11, border: "1px solid #C7D1DA", background: "#fff", color: "var(--ink)" };
                 let st = base;
                 if (!s.available) st = { ...base, background: "#F4F6F8", border: "1px solid #E3E9EF", color: "#B6C0C9", textDecoration: "line-through", cursor: "not-allowed" };
@@ -329,13 +355,21 @@ export function AmendForm({
               })}
             </div>
           )}
+          {selectedSlots.length > 0 && !isContiguous && (
+            <p style={{ fontSize: 11, color: "var(--st-cancelled-text)", marginTop: 8 }}>{t.slotNonContiguous}</p>
+          )}
+          {selectedSlots.length > 0 && isContiguous && !withinCap && (
+            <p style={{ fontSize: 11, color: "var(--st-cancelled-text)", marginTop: 8 }}>{t.slotMaxExceeded}</p>
+          )}
         </div>
 
         <div style={card}>
           <h3 style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>{t.summary}</h3>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", fontSize: 12 }}>
             <span style={{ color: "#5A6B7C" }}>{t.window}</span>
-            <span className="mono" style={{ fontWeight: 600, fontSize: 13, color: "var(--blue)" }}>{sel ? `${minutesToHm(sel.start)} → ${minutesToHm(sel.end)}` : "—"}</span>
+            <span className="mono" style={{ fontWeight: 600, fontSize: 13, color: "var(--blue)" }}>
+              {selWindow ? (isContiguous ? `${minutesToHm(selWindow.start)} → ${minutesToHm(selWindow.end)}` : t.slotNonContiguous) : "—"}
+            </span>
           </div>
           <div style={{ margin: "10px 0" }}>
             <div style={{ fontSize: 11, color: "#5A6B7C", marginBottom: 4 }}>{t.capNote} · {Math.floor(totalMinutes / 60)} h {String(totalMinutes % 60).padStart(2, "0")} / 2 h</div>

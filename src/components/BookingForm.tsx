@@ -65,6 +65,7 @@ export function BookingForm({
   lang,
   venues,
   supplierName,
+  supplierPhone,
   vehicleTypes,
   merchTypes,
   packTypes,
@@ -74,6 +75,7 @@ export function BookingForm({
   lang: Lang;
   venues: VenueOpt[];
   supplierName: string;
+  supplierPhone?: string;
   vehicleTypes: string[];
   merchTypes: string[];
   packTypes: string[];
@@ -85,7 +87,9 @@ export function BookingForm({
   const [type, setType] = useState<"delivery" | "collection">("delivery");
   const [transporterName, setTransporterName] = useState("");
   const [transporterContact, setTransporterContact] = useState("");
-  const [supplierContact, setSupplierContact] = useState("");
+  // Seeded from the supplier's account profile (req. #2) — the user can still
+  // freely edit it for this booking; it's just a starting value, not a lock.
+  const [supplierContact, setSupplierContact] = useState(supplierPhone ?? "");
   const [vehicleType, setVehicleType] = useState(vehicleTypes[0] ?? "");
   const [merchandiseType, setMerchandiseType] = useState(merchTypes[0] ?? "");
   const [packagingType, setPackagingType] = useState("");
@@ -106,7 +110,12 @@ export function BookingForm({
     closeTime?: string;
     slots: SlotDto[];
   }>({ open: false, slots: [] });
-  const [sel, setSel] = useState<{ start: number; end: number } | null>(null);
+  // Selected slots, keyed by startMinutes. Each click toggles the slot in or
+  // out independently — no ordering requirement, and any already-selected
+  // slot (not just the most recent) can be clicked to deselect it. The
+  // resulting window still has to be contiguous and ≤ 2 h to submit (§9),
+  // which is validated below rather than restricted at click time.
+  const [sel, setSel] = useState<Set<number>>(new Set());
 
   const [result, setResult] = useState<{ ok: boolean; msg: string; id?: string } | null>(null);
 
@@ -142,42 +151,48 @@ export function BookingForm({
     };
   }, [venueId, dateIso]);
 
+  /** Toggle a single slot in/out of the selection. Available at any time for
+   *  any already-selected slot — there's no requirement to touch other slots
+   *  first, and no restriction on which one gets deselected. */
   function clickSlot(s: SlotDto) {
     if (!s.available) return;
-    if (!sel) {
-      setSel({ start: s.startMinutes, end: s.endMinutes });
-      return;
-    }
-    // Toggle off if it's the single selected slot.
-    if (sel.start === s.startMinutes && sel.end === s.endMinutes) {
-      setSel(null);
-      return;
-    }
-    const lo = Math.min(sel.start, s.startMinutes);
-    const hi = Math.max(sel.end, s.endMinutes);
-    const within = slotState.slots.filter(
-      (x) => x.startMinutes >= lo && x.endMinutes <= hi,
-    );
-    const allAvailable = within.every((x) => x.available);
-    if (allAvailable && hi - lo <= MAX_BOOKING_MINUTES) {
-      setSel({ start: lo, end: hi });
-    } else {
-      setSel({ start: s.startMinutes, end: s.endMinutes });
-    }
+    setSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(s.startMinutes)) next.delete(s.startMinutes);
+      else next.add(s.startMinutes);
+      return next;
+    });
   }
 
-  const totalMinutes = sel ? sel.end - sel.start : 0;
+  // Selected slots in start-time order, and the derived merged window.
+  // Submission requires the selection to be one contiguous, ≤ 2 h block
+  // (§9) — enforced here rather than at click time, so add/remove stays
+  // unrestricted while the booking itself still respects the rule.
+  const selectedSlots = slotState.slots
+    .filter((s) => sel.has(s.startMinutes))
+    .sort((a, b) => a.startMinutes - b.startMinutes);
+  const isContiguous = selectedSlots.every(
+    (s, i) => i === 0 || s.startMinutes === selectedSlots[i - 1].endMinutes,
+  );
+  const selWindow =
+    selectedSlots.length > 0
+      ? { start: selectedSlots[0].startMinutes, end: selectedSlots[selectedSlots.length - 1].endMinutes }
+      : null;
+  const withinCap = !!selWindow && selWindow.end - selWindow.start <= MAX_BOOKING_MINUTES;
+  const selectionValid = selectedSlots.length > 0 && isContiguous && withinCap;
+
+  const totalMinutes = selWindow ? selWindow.end - selWindow.start : 0;
   const canSubmit =
     !!venueId &&
     !!compoundId &&
     !!effectiveGateId &&
-    !!sel &&
+    selectionValid &&
     !!supplierContact &&
     !!transporterName &&
     !pending;
 
   function submit() {
-    if (!sel) return;
+    if (!selectionValid || !selWindow) return;
     setResult(null);
     startTransition(async () => {
       const res = await createBookingAction({
@@ -195,13 +210,13 @@ export function BookingForm({
         compoundId,
         gateId: effectiveGateId,
         dateIso,
-        slotStartMinutes: sel.start,
-        slotEndMinutes: sel.end,
+        slotStartMinutes: selWindow.start,
+        slotEndMinutes: selWindow.end,
         comments,
       });
       if (res.ok) {
         setResult({ ok: true, msg: res.reference, id: res.id });
-        setSel(null);
+        setSel(new Set());
         setTransporterName("");
         setTransporterContact("");
         getSlots(venueId, dateIso).then(setSlotState);
@@ -330,7 +345,7 @@ export function BookingForm({
                 setCompoundId("");
                 setGateId("");
                 setSlotState({ open: false, slots: [] });
-                setSel(null);
+                setSel(new Set());
               }}
               style={{ ...control, borderColor: venueId ? "var(--blue)" : "#C7D1DA" }}
             >
@@ -350,7 +365,7 @@ export function BookingForm({
               onChange={(e) => {
                 setDateIso(e.target.value);
                 setSlotState({ open: false, slots: [] });
-                setSel(null);
+                setSel(new Set());
               }}
               style={{ ...control, borderColor: dateIso ? "var(--blue)" : "#C7D1DA" }}
             />
@@ -434,7 +449,7 @@ export function BookingForm({
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7 }}>
               {slotState.slots.map((s) => {
-                const selected = sel && s.startMinutes >= sel.start && s.endMinutes <= sel.end;
+                const selected = sel.has(s.startMinutes);
                 const base: React.CSSProperties = {
                   height: 32,
                   borderRadius: 6,
@@ -465,6 +480,13 @@ export function BookingForm({
             </div>
           )}
 
+          {selectedSlots.length > 0 && !isContiguous && (
+            <p style={{ fontSize: 11, color: "var(--st-cancelled-text)", marginTop: 8 }}>{t.slotNonContiguous}</p>
+          )}
+          {selectedSlots.length > 0 && isContiguous && !withinCap && (
+            <p style={{ fontSize: 11, color: "var(--st-cancelled-text)", marginTop: 8 }}>{t.slotMaxExceeded}</p>
+          )}
+
           <div style={{ display: "flex", gap: 14, marginTop: 12, fontSize: 10.5, color: "#5A6B7C" }}>
             <Legend color="#fff" border="#C7D1DA" label={t.legFree} />
             <Legend color="var(--blue)" border="var(--blue)" label={t.legSelected} />
@@ -476,7 +498,7 @@ export function BookingForm({
           <h3 style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>{t.summary}</h3>
           <Row label={t.window}>
             <span className="mono" style={{ fontWeight: 600, fontSize: 13, color: "var(--blue)" }}>
-              {sel ? `${minutesToHm(sel.start)} → ${minutesToHm(sel.end)}` : "—"}
+              {selWindow ? (isContiguous ? `${minutesToHm(selWindow.start)} → ${minutesToHm(selWindow.end)}` : t.slotNonContiguous) : "—"}
             </span>
           </Row>
           <div style={{ margin: "10px 0" }}>

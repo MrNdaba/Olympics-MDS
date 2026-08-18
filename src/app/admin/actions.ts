@@ -30,8 +30,20 @@ export interface CreateUserInput {
 export async function createUserAction(input: CreateUserInput): Promise<Result> {
   const admin = await requireRole("admin");
   const email = input.email.trim().toLowerCase();
-  if (!email || !input.name.trim()) return { ok: false, error: "Email and name are required." };
+  const name = input.name.trim();
+  const phone = input.phone?.trim() ?? "";
   if (!ROLES.includes(input.role)) return { ok: false, error: "Invalid role." };
+
+  // Supplier accounts must carry a way to reach the driver/site contact —
+  // email and phone are both mandatory (never silently create a partial
+  // supplier account); other roles keep phone optional.
+  const missing: string[] = [];
+  if (!email) missing.push("email address");
+  if (!name) missing.push("name");
+  if (input.role === "supplier" && !phone) missing.push("phone number");
+  if (missing.length > 0) {
+    return { ok: false, error: `Missing required field${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}.` };
+  }
 
   const policyError = validatePasswordPolicy(input.password, input.role);
   if (policyError) return { ok: false, error: policyError };
@@ -45,10 +57,10 @@ export async function createUserAction(input: CreateUserInput): Promise<Result> 
   await prisma.user.create({
     data: {
       email,
-      name: input.name.trim(),
+      name,
       role: input.role,
       otpChannel: input.otpChannel,
-      phone: input.phone?.trim() || null,
+      phone: phone || null,
       passwordHash,
       mustChangePassword: true,
       venueAssignments: { create: venueIds.map((venueId) => ({ venueId })) },
@@ -70,10 +82,18 @@ export interface UpdateUserInput {
 
 export async function updateUserAction(input: UpdateUserInput): Promise<Result> {
   const admin = await requireRole("admin");
-  if (!input.name.trim()) return { ok: false, error: "Name is required." };
+  const name = input.name.trim();
+  const phone = input.phone?.trim() ?? "";
   if (!ROLES.includes(input.role)) return { ok: false, error: "Invalid role." };
   if (input.userId === admin.id && input.role !== "admin") {
     return { ok: false, error: "You cannot change your own role." };
+  }
+
+  const missing: string[] = [];
+  if (!name) missing.push("name");
+  if (input.role === "supplier" && !phone) missing.push("phone number");
+  if (missing.length > 0) {
+    return { ok: false, error: `Missing required field${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}.` };
   }
 
   const user = await prisma.user.findUnique({ where: { id: input.userId } });
@@ -85,10 +105,10 @@ export async function updateUserAction(input: UpdateUserInput): Promise<Result> 
     await tx.user.update({
       where: { id: input.userId },
       data: {
-        name: input.name.trim(),
+        name,
         role: input.role,
         otpChannel: input.otpChannel,
-        phone: input.phone?.trim() || null,
+        phone: phone || null,
       },
     });
     // Reset venue scoping to the new selection (VLM only).

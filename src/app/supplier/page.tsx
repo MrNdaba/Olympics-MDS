@@ -20,11 +20,12 @@ export default async function SupplierPage() {
   const user = await requireRole("supplier");
   const { lang, t } = await getTranslations();
 
-  const [venues, vehicleTypes, merchTypes, packTypes] = await Promise.all([
+  const [venues, vehicleTypes, merchTypes, packTypes, profile] = await Promise.all([
     getActiveVenues(),
     masterList(MASTER_DATA_CATEGORIES[0]),
     masterList(MASTER_DATA_CATEGORIES[1]),
     masterList(MASTER_DATA_CATEGORIES[2]),
+    prisma.user.findUnique({ where: { id: user.id }, select: { phone: true } }),
   ]);
 
   const nav: NavItem[] = supplierNav("new", t);
@@ -38,6 +39,7 @@ export default async function SupplierPage() {
           lang={lang}
           venues={venues}
           supplierName={user.name}
+          supplierPhone={profile?.phone ?? ""}
           vehicleTypes={vehicleTypes}
           merchTypes={merchTypes}
           packTypes={packTypes}

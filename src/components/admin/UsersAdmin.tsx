@@ -35,6 +35,16 @@ const control: React.CSSProperties = { height: 36, borderRadius: 7, border: "1px
 const th: React.CSSProperties = { fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: ".05em", color: "#5A6B7C", textAlign: "left", padding: "10px 14px" };
 const td: React.CSSProperties = { padding: "10px 14px", fontSize: 12, borderTop: "1px solid #F0F3F6" };
 
+/** Red asterisk marking a mandatory field — mirrors BookingForm's RequiredMark
+ *  so required fields read the same way across the app. */
+function RequiredMark({ t }: { t: Dict }) {
+  return (
+    <span style={{ color: "var(--st-cancelled-text)" }} title={t.requiredField} aria-label={t.requiredField}>
+      *
+    </span>
+  );
+}
+
 export function UsersAdmin({
   t,
   users,
@@ -155,9 +165,14 @@ export function UsersAdmin({
       <div style={card}>
         <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>{t.newUser}</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div><label style={labelS}>{t.name}</label><input value={name} onChange={(e) => setName(e.target.value)} style={control} /></div>
-          <div><label style={labelS}>{t.email}</label><input value={email} onChange={(e) => setEmail(e.target.value)} type="email" style={control} /></div>
-          <div><label style={labelS}>{t.phone}</label><PhoneInput value={phone} onChange={setPhone} /></div>
+          <div><label style={labelS}>{t.name} <RequiredMark t={t} /></label><input value={name} onChange={(e) => setName(e.target.value)} style={control} /></div>
+          <div><label style={labelS}>{t.email} <RequiredMark t={t} /></label><input value={email} onChange={(e) => setEmail(e.target.value)} type="email" style={control} /></div>
+          <div>
+            <label style={labelS}>
+              {t.phone} {role === "supplier" ? <RequiredMark t={t} /> : <span style={{ color: "#9AA7B2" }}>{t.optional}</span>}
+            </label>
+            <PhoneInput value={phone} onChange={setPhone} />
+          </div>
           <div>
             <label style={labelS}>{t.role}</label>
             <select value={role} onChange={(e) => setRole(e.target.value as CreateUserInput["role"])} style={control}>
@@ -282,7 +297,12 @@ export function UsersAdmin({
                     <option value="sms">SMS</option>
                   </select>
                 </div>
-                <div><label style={labelS}>{t.phone}</label><PhoneInput value={ePhone} onChange={setEPhone} /></div>
+                <div>
+                  <label style={labelS}>
+                    {t.phone} {eRole === "supplier" ? <RequiredMark t={t} /> : <span style={{ color: "#9AA7B2" }}>{t.optional}</span>}
+                  </label>
+                  <PhoneInput value={ePhone} onChange={setEPhone} />
+                </div>
               </div>
               {eError && <p style={{ color: "var(--st-cancelled-text)", fontSize: 12 }}>{eError}</p>}
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
