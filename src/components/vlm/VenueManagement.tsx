@@ -60,6 +60,17 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
 
   const venue = useMemo(() => venues.find((v) => v.id === selectedId), [venues, selectedId]);
 
+  // Newest ⇄ Oldest sort for the operating-days schedule (item #10) — sorts
+  // by the scheduled date itself, which is the meaningful order for a
+  // venue-scheduling view (rather than row-creation time).
+  const [daysSortDir, setDaysSortDir] = useState<"newest" | "oldest">("oldest");
+  const sortedDays = useMemo(() => {
+    const days = venue?.days ?? [];
+    return [...days].sort((a, b) =>
+      daysSortDir === "newest" ? b.dateIso.localeCompare(a.dateIso) : a.dateIso.localeCompare(b.dateIso),
+    );
+  }, [venue, daysSortDir]);
+
   const routeSet = useMemo(
     () => new Set((venue?.routes ?? []).map((r) => `${r.compoundId}|${r.gateId}`)),
     [venue],
@@ -151,8 +162,19 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
 
       {/* Operating hours */}
       <div style={card}>
-        <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{t.operatingHours}</h2>
-        <p style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 14 }}>{t.operatingHoursNote}</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+          <div>
+            <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{t.operatingHours}</h2>
+            <p style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 14 }}>{t.operatingHoursNote}</p>
+          </div>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#5A6B7C", whiteSpace: "nowrap" }}>
+            {t.sortLabel}
+            <select value={daysSortDir} onChange={(e) => setDaysSortDir(e.target.value as "newest" | "oldest")} style={{ ...control, height: 30, width: "auto" }}>
+              <option value="newest">{t.sortNewest}</option>
+              <option value="oldest">{t.sortOldest}</option>
+            </select>
+          </label>
+        </div>
 
         {/* Add / set a day */}
         <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
@@ -189,10 +211,10 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
             </tr>
           </thead>
           <tbody>
-            {venue.days.length === 0 && (
+            {sortedDays.length === 0 && (
               <tr><td style={{ ...td, color: "#9AA7B2" }} colSpan={5}>{t.noOperatingDays}</td></tr>
             )}
-            {venue.days.map((d) => (
+            {sortedDays.map((d) => (
               <tr key={d.dateIso} style={{ opacity: d.active ? 1 : 0.55 }}>
                 <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{d.dateDisplay}</td>
                 <td style={td}>

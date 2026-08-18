@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Dict } from "@/lib/i18n";
-import type { OtpChannel } from "@/lib/constants";
 import { changePasswordAction, updateContactAction } from "@/app/settings/actions";
 
 const card: React.CSSProperties = { background: "#fff", border: "1px solid var(--border-card)", borderRadius: 10, padding: "20px 22px" };
@@ -14,12 +13,10 @@ const primary: React.CSSProperties = { height: 40, borderRadius: 7, border: "non
 export function SettingsForm({
   t,
   phone,
-  otpChannel,
   mustChange,
 }: {
   t: Dict;
   phone: string;
-  otpChannel: OtpChannel;
   mustChange: boolean;
 }) {
   const router = useRouter();
@@ -32,7 +29,6 @@ export function SettingsForm({
   const [pwOk, setPwOk] = useState(false);
 
   const [phoneVal, setPhoneVal] = useState(phone);
-  const [channel, setChannel] = useState<OtpChannel>(otpChannel);
   const [contactError, setContactError] = useState<string | null>(null);
   const [contactOk, setContactOk] = useState(false);
 
@@ -61,7 +57,7 @@ export function SettingsForm({
     setContactError(null);
     setContactOk(false);
     startTransition(async () => {
-      const res = await updateContactAction(phoneVal, channel);
+      const res = await updateContactAction(phoneVal);
       if (res.ok) {
         setContactOk(true);
         router.refresh();
@@ -107,13 +103,6 @@ export function SettingsForm({
           <div>
             <label style={labelS}>{t.phone} {t.optional}</label>
             <input value={phoneVal} onChange={(e) => setPhoneVal(e.target.value)} style={control} />
-          </div>
-          <div>
-            <label style={labelS}>{t.otpChannelLabel}</label>
-            <select value={channel} onChange={(e) => setChannel(e.target.value as OtpChannel)} style={control}>
-              <option value="email">Email</option>
-              <option value="sms">SMS</option>
-            </select>
           </div>
           {contactError && <p style={{ color: "var(--st-cancelled-text)", fontSize: 12 }}>{contactError}</p>}
           {contactOk && <p style={{ color: "var(--st-confirmed-text)", fontSize: 12 }}>✓ {t.contactSaved}</p>}

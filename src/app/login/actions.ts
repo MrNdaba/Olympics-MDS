@@ -64,9 +64,8 @@ export async function startLogin(
   redirect("/");
 
   /* --- OTP flow (disabled) ---
-  const channel = user.otpChannel as OtpChannel;
-  const recipient = channel === "sms" ? user.phone ?? user.email : user.email;
-  const { devCode } = await issueOtp(user.id, channel, recipient);
+  const channel = user.otpChannel as OtpChannel; // always "email" (item #9)
+  const { devCode } = await issueOtp(user.id, channel, user.email);
 
   const store = await cookies();
   store.set(PENDING_COOKIE, user.id, {

@@ -12,7 +12,7 @@ import { adminNav, vlmNav } from "@/lib/nav";
 export default async function VlmPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; type?: string; venueId?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; type?: string; venueId?: string; from?: string; to?: string; sort?: string }>;
 }) {
   const user = await requireRole("vlm", "admin");
   const { lang, t } = await getTranslations();
@@ -49,11 +49,26 @@ export default async function VlmPage({
     ];
   }
 
+  // Newest ⇄ Oldest sort (item #10) overrides the default upcoming-first
+  // ordering only once the VLM explicitly picks it via SortControl.
+  const orderBy =
+    sp.sort === "newest"
+      ? [{ createdAt: "desc" as const }]
+      : sp.sort === "oldest"
+        ? [{ createdAt: "asc" as const }]
+        : [{ serviceDate: "asc" as const }, { slotStart: "asc" as const }];
+
   const [bookings, pendingCount] = await Promise.all([
     prisma.booking.findMany({
       where,
-      include: { compound: true, gate: true, venue: true },
-      orderBy: [{ serviceDate: "asc" }, { slotStart: "asc" }],
+      include: {
+        compound: true,
+        gate: true,
+        venue: true,
+        // Latest cancellation reason, if any, for the status-badge tooltip (item #5).
+        auditEntries: { where: { action: "cancelled" }, orderBy: { timestamp: "desc" }, take: 1 },
+      },
+      orderBy,
       take: 200,
     }),
     prisma.booking.count({ where: { venueId: { in: scopedVenueIds }, status: "PendingValidation" } }),
@@ -75,6 +90,7 @@ export default async function VlmPage({
     canValidate: b.status === "PendingValidation",
     canCancel: ACTIVE_STATUSES.includes(b.status as BookingStatus) && b.slotStart.getTime() > now,
     canReinstate: b.status === "Cancelled" && b.slotStart.getTime() > now,
+    cancelReason: b.auditEntries[0]?.reason ?? null,
   }));
 
   const venueLabel =
@@ -94,6 +110,7 @@ export default async function VlmPage({
   if (selectedVenueId) exportParams.set("venueId", selectedVenueId);
   if (sp.from) exportParams.set("from", sp.from);
   if (sp.to) exportParams.set("to", sp.to);
+  if (sp.sort) exportParams.set("sort", sp.sort);
   const exportQs = exportParams.toString();
   const suffix = exportQs ? `&${exportQs}` : "";
   const dailyQs = exportParams.toString();

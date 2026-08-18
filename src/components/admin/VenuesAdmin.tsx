@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Dict } from "@/lib/i18n";
 import {
@@ -17,6 +17,8 @@ export interface VenueRow {
   status: string;
   slotDuration: number;
   bookings: number;
+  /** ISO timestamp — sort key for the Newest/Oldest toggle (item #10). */
+  createdAt: string;
 }
 
 const card: React.CSSProperties = { background: "#fff", border: "1px solid var(--border-card)", borderRadius: 10, padding: "20px 22px" };
@@ -25,16 +27,40 @@ const control: React.CSSProperties = { height: 36, borderRadius: 7, border: "1px
 const th: React.CSSProperties = { fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: ".05em", color: "#5A6B7C", textAlign: "left", padding: "10px 14px" };
 const td: React.CSSProperties = { padding: "10px 14px", fontSize: 12.5, borderTop: "1px solid #F0F3F6" };
 
+/** Red asterisk marking a mandatory field — mirrors BookingForm's RequiredMark. */
+function RequiredMark({ t }: { t: Dict }) {
+  return (
+    <span style={{ color: "var(--st-cancelled-text)" }} title={t.requiredField} aria-label={t.requiredField}>
+      *
+    </span>
+  );
+}
+
 export function VenuesAdmin({ t, venues }: { t: Dict; venues: VenueRow[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
+  // Newest ⇄ Oldest sort (item #10).
+  const [sortDir, setSortDir] = useState<"newest" | "oldest">("newest");
+  const sortedVenues = useMemo(
+    () =>
+      [...venues].sort((a, b) =>
+        sortDir === "newest" ? b.createdAt.localeCompare(a.createdAt) : a.createdAt.localeCompare(b.createdAt),
+      ),
+    [venues, sortDir],
+  );
+
   const [name, setName] = useState("");
   const [siteCode, setSiteCode] = useState("");
   const [city, setCity] = useState("");
-  const [slotDuration, setSlotDuration] = useState(30);
+  const [slotDuration, setSlotDuration] = useState<number | "">(30);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+
+  // No incomplete venue records (item #12) — block Create until every
+  // required field is present, mirroring BookingForm's canSubmit pattern.
+  const canSubmit =
+    !!name.trim() && !!siteCode.trim() && !!city.trim() && slotDuration !== "" && !pending;
 
   // Edit-venue modal state.
   const [editing, setEditing] = useState<VenueRow | null>(null);
@@ -71,10 +97,11 @@ export function VenuesAdmin({ t, venues }: { t: Dict; venues: VenueRow[] }) {
   }
 
   function submit() {
+    if (!canSubmit) return;
     setError(null);
     setOk(null);
     startTransition(async () => {
-      const res = await createVenueAction({ name, siteCode, city, slotDuration });
+      const res = await createVenueAction({ name, siteCode, city, slotDuration: Number(slotDuration) });
       if (res.ok) {
         setOk(siteCode.toUpperCase());
         setName("");
@@ -102,21 +129,29 @@ export function VenuesAdmin({ t, venues }: { t: Dict; venues: VenueRow[] }) {
       <div style={card}>
         <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>{t.newVenue}</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div><label style={labelS}>{t.name}</label><input value={name} onChange={(e) => setName(e.target.value)} style={control} /></div>
+          <div><label style={labelS}>{t.name} <RequiredMark t={t} /></label><input value={name} onChange={(e) => setName(e.target.value)} style={control} /></div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
-              <label style={labelS}>{t.siteCode}</label>
+              <label style={labelS}>{t.siteCode} <RequiredMark t={t} /></label>
               <input value={siteCode} onChange={(e) => setSiteCode(e.target.value.toUpperCase().slice(0, 3))} maxLength={3} className="mono" style={control} />
             </div>
-            <div><label style={labelS}>{t.city}</label><input value={city} onChange={(e) => setCity(e.target.value)} style={control} /></div>
+            <div><label style={labelS}>{t.city} <RequiredMark t={t} /></label><input value={city} onChange={(e) => setCity(e.target.value)} style={control} /></div>
           </div>
           <div>
-            <label style={labelS}>{t.slotDuration}</label>
-            <input type="number" min={5} max={240} step={5} value={slotDuration} onChange={(e) => setSlotDuration(Number(e.target.value))} style={control} />
+            <label style={labelS}>{t.slotDuration} <RequiredMark t={t} /></label>
+            <input
+              type="number"
+              min={5}
+              max={240}
+              step={5}
+              value={slotDuration}
+              onChange={(e) => setSlotDuration(e.target.value === "" ? "" : Number(e.target.value))}
+              style={control}
+            />
           </div>
           {error && <p style={{ color: "var(--st-cancelled-text)", fontSize: 12 }}>{error}</p>}
           {ok && <p style={{ color: "var(--st-confirmed-text)", fontSize: 12 }}>✓ {ok}</p>}
-          <button type="button" disabled={pending} onClick={submit} style={{ height: 40, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 13 }}>
+          <button type="button" disabled={!canSubmit} onClick={submit} style={{ height: 40, borderRadius: 7, border: "none", background: canSubmit ? "var(--blue)" : "#B6C0C9", color: "#fff", fontWeight: 700, fontSize: 13 }}>
             {t.create}
           </button>
         </div>
@@ -124,6 +159,15 @@ export function VenuesAdmin({ t, venues }: { t: Dict; venues: VenueRow[] }) {
 
       {/* Venues table */}
       <div style={{ background: "#fff", border: "1px solid var(--border-card)", borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "10px 14px", borderBottom: "1px solid #F0F3F6" }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#5A6B7C" }}>
+            {t.sortLabel}
+            <select value={sortDir} onChange={(e) => setSortDir(e.target.value as "newest" | "oldest")} style={{ ...control, height: 30, width: "auto" }}>
+              <option value="newest">{t.sortNewest}</option>
+              <option value="oldest">{t.sortOldest}</option>
+            </select>
+          </label>
+        </div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead style={{ background: "#F8FAFB" }}>
             <tr>
@@ -136,10 +180,10 @@ export function VenuesAdmin({ t, venues }: { t: Dict; venues: VenueRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {venues.length === 0 && (
+            {sortedVenues.length === 0 && (
               <tr><td style={{ ...td, color: "#9AA7B2" }} colSpan={6}>{t.noVenues}</td></tr>
             )}
-            {venues.map((v) => (
+            {sortedVenues.map((v) => (
               <tr key={v.id} style={{ opacity: v.status === "inactive" ? 0.6 : 1 }}>
                 <td style={td}>{v.name}</td>
                 <td style={{ ...td, fontFamily: "var(--font-mono)", fontWeight: 600 }}>{v.siteCode}</td>

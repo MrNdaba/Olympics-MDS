@@ -22,7 +22,9 @@ export const ACTIVE_STATUSES: BookingStatus[] = ["PendingValidation", "Confirmed
 export const DEPARTMENTS = ["LOG", "FNB", "MKT", "OTHER"] as const;
 export type Department = (typeof DEPARTMENTS)[number];
 
-export const OTP_CHANNELS = ["email", "sms"] as const;
+// Email is the only supported OTP/notification channel — SMS was removed
+// (approved architecture uses email only; see AGENTS.md non-negotiables).
+export const OTP_CHANNELS = ["email"] as const;
 export type OtpChannel = (typeof OTP_CHANNELS)[number];
 
 export const USER_STATUSES = ["active", "locked", "deactivated"] as const;

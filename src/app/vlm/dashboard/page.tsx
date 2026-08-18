@@ -1,18 +1,21 @@
 import { requireRole } from "@/lib/auth";
 import { getTranslations } from "@/lib/lang";
+import type { Dict } from "@/lib/i18n";
 import { prisma } from "@/lib/db";
 import { runLifecycleSweep } from "@/lib/booking";
 import { getDaySlots } from "@/lib/slots";
+import { getVenueLoadRangeReport, type RangeReport } from "@/lib/reporting";
 import { addDays, dayIso, formatLongDate, hmOf, parseDakarDay } from "@/lib/time";
 import { TopBar } from "@/components/TopBar";
 import { Poller } from "@/components/Poller";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { DashboardVenueSelect } from "@/components/vlm/VenueSelect";
 import { adminNav, vlmNav } from "@/lib/nav";
 
 export default async function VlmDashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; venueId?: string }>;
+  searchParams: Promise<{ date?: string; venueId?: string; from?: string; to?: string }>;
 }) {
   const user = await requireRole("vlm", "admin");
   const { lang, t } = await getTranslations();
@@ -34,6 +37,20 @@ export default async function VlmDashboard({
   const primary = selectedVenueId
     ? scopedVenues.find((v) => v.id === selectedVenueId)!
     : scopedVenues[0];
+
+  // Date-range report (items #7/#8) — opt-in via the "Du/Au" filter. With no
+  // range in the URL the dashboard is exactly the single-day Today view
+  // (default behaviour), and navigating away and back drops the query string
+  // entirely, so it always resets to Today.
+  const rangeMode = !!(sp.from && sp.to);
+  const rangeReport = rangeMode
+    ? await getVenueLoadRangeReport({
+        venueIds: effectiveVenueIds,
+        primaryVenueId: primary?.id,
+        fromIso: sp.from!,
+        toIso: sp.to!,
+      })
+    : null;
 
   const day = sp.date ? parseDakarDay(sp.date) : parseDakarDay(dayIso(new Date()));
   const dayEnd = addDays(day, 1);
@@ -109,88 +126,108 @@ export default async function VlmDashboard({
           </a>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-          {statusCard(counts.Confirmed, t.stConfirmedPl, "var(--st-confirmed)")}
-          {statusCard(counts.PendingValidation, t.stPendingPl, "var(--st-pending)")}
-          {statusCard(counts.Cancelled, t.stCancelledPl, "var(--st-cancelled)")}
-          {statusCard(counts.Expired, t.stExpiredPl, "var(--st-expired)")}
-        </div>
-
-        <div style={cardStyle}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
-            <h2 style={{ fontSize: 14, fontWeight: 700 }}>
-              {t.loadTitle} — {primary?.name ?? "—"}
-            </h2>
-            <span className="mono" style={{ fontSize: 11, color: "#5A6B7C" }}>
-              {bookedCount} / {loadCells.length}
-            </span>
-          </div>
-          {!grid.open ? (
-            <p style={{ fontSize: 12, color: "#9AA7B2" }}>{t.closedDay}</p>
-          ) : (
-            <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-              {loadCells.map((c, i) => (
-                <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                  <div
-                    title={c.time}
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: 4,
-                      background:
-                        c.state === "confirmed" ? "var(--blue)" : c.state === "pending" ? "var(--st-pending-cell)" : "#E3E9EF",
-                    }}
-                  />
-                  <span className="mono" style={{ fontSize: 8.5, color: "#5A6B7C" }}>{c.time}</span>
-                </div>
-              ))}
-            </div>
+        {/* Date-range report filter (items #7/#8) — "Du/Au" alongside the
+            single-day nav above. Picking a range switches the sections below
+            into the range report; clearing it (or the Today link) returns to
+            the single-day Today view. */}
+        <div style={{ background: "#fff", border: "1px solid var(--border-card)", borderRadius: 9, padding: "10px 12px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: "#33475B" }}>{t.rangeReportTitle}</span>
+          <DateRangeFilter t={t} basePath="/vlm/dashboard" />
+          {rangeMode && (
+            <a href={`/vlm/dashboard${venueOnly}`} style={{ marginLeft: "auto", fontSize: 11.5, fontWeight: 600, color: "var(--blue)" }}>
+              {t.today}
+            </a>
           )}
-          <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 10.5, color: "#5A6B7C" }}>
-            <Legend color="var(--blue)" label={t.legBooked} />
-            <Legend color="var(--st-pending-cell)" label={t.legPendingSlot} />
-            <Legend color="#E3E9EF" label={t.legFree} />
-          </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-          <div style={cardStyle}>
-            <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{t.typeSplit}</h2>
-            <div style={{ height: 14, borderRadius: 7, overflow: "hidden", display: "flex", background: "#EBF0F4" }}>
-              <div style={{ width: `${activeTotal ? (deliveries / activeTotal) * 100 : 0}%`, background: "var(--blue)" }} />
-              <div style={{ width: `${activeTotal ? (collections / activeTotal) * 100 : 0}%`, background: "#12202E" }} />
+        {rangeMode && rangeReport ? (
+          <RangeReportSection t={t} report={rangeReport} primaryName={primary?.name} />
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+              {statusCard(counts.Confirmed, t.stConfirmedPl, "var(--st-confirmed)")}
+              {statusCard(counts.PendingValidation, t.stPendingPl, "var(--st-pending)")}
+              {statusCard(counts.Cancelled, t.stCancelledPl, "var(--st-cancelled)")}
+              {statusCard(counts.Expired, t.stExpiredPl, "var(--st-expired)")}
             </div>
-            <div style={{ display: "flex", gap: 18, marginTop: 10, fontSize: 12 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 3, background: "var(--blue)" }} />
-                {t.deliveriesPl} <b className="mono">{deliveries}</b>
-              </span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 3, background: "#12202E" }} />
-                {t.collectionsPl} <b className="mono">{collections}</b>
-              </span>
-            </div>
-          </div>
 
-          <div style={cardStyle}>
-            <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>{t.dailyList}</h2>
-            <p style={{ fontSize: 11.5, color: "#5A6B7C", marginBottom: 12, lineHeight: 1.45 }}>{t.dailyListNote}</p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <a
-                href={`/vlm/daily?date=${dayIso(day)}${venueSuffix}`}
-                style={{ border: "1px solid #C7D1DA", borderRadius: 7, padding: "8px 12px", fontSize: 12, fontWeight: 600, color: "#33475B", display: "inline-block" }}
-              >
-                ⎙ PDF
-              </a>
-              <a
-                href={`/vlm/export?format=csv&from=${dayIso(day)}&to=${dayIso(day)}${venueSuffix}`}
-                style={{ border: "1px solid #C7D1DA", borderRadius: 7, padding: "8px 12px", fontSize: 12, fontWeight: 600, color: "#33475B", display: "inline-block" }}
-              >
-                Excel ↓
-              </a>
+            <div style={cardStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+                <h2 style={{ fontSize: 14, fontWeight: 700 }}>
+                  {t.loadTitle} — {primary?.name ?? "—"}
+                </h2>
+                <span className="mono" style={{ fontSize: 11, color: "#5A6B7C" }}>
+                  {bookedCount} / {loadCells.length}
+                </span>
+              </div>
+              {!grid.open ? (
+                <p style={{ fontSize: 12, color: "#9AA7B2" }}>{t.closedDay}</p>
+              ) : (
+                <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                  {loadCells.map((c, i) => (
+                    <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                      <div
+                        title={c.time}
+                        style={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: 4,
+                          background:
+                            c.state === "confirmed" ? "var(--blue)" : c.state === "pending" ? "var(--st-pending-cell)" : "#E3E9EF",
+                        }}
+                      />
+                      <span className="mono" style={{ fontSize: 8.5, color: "#5A6B7C" }}>{c.time}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 10.5, color: "#5A6B7C" }}>
+                <Legend color="var(--blue)" label={t.legBooked} />
+                <Legend color="var(--st-pending-cell)" label={t.legPendingSlot} />
+                <Legend color="#E3E9EF" label={t.legFree} />
+              </div>
             </div>
-          </div>
-        </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+              <div style={cardStyle}>
+                <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{t.typeSplit}</h2>
+                <div style={{ height: 14, borderRadius: 7, overflow: "hidden", display: "flex", background: "#EBF0F4" }}>
+                  <div style={{ width: `${activeTotal ? (deliveries / activeTotal) * 100 : 0}%`, background: "var(--blue)" }} />
+                  <div style={{ width: `${activeTotal ? (collections / activeTotal) * 100 : 0}%`, background: "#12202E" }} />
+                </div>
+                <div style={{ display: "flex", gap: 18, marginTop: 10, fontSize: 12 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 3, background: "var(--blue)" }} />
+                    {t.deliveriesPl} <b className="mono">{deliveries}</b>
+                  </span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 3, background: "#12202E" }} />
+                    {t.collectionsPl} <b className="mono">{collections}</b>
+                  </span>
+                </div>
+              </div>
+
+              <div style={cardStyle}>
+                <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>{t.dailyList}</h2>
+                <p style={{ fontSize: 11.5, color: "#5A6B7C", marginBottom: 12, lineHeight: 1.45 }}>{t.dailyListNote}</p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <a
+                    href={`/vlm/daily?date=${dayIso(day)}${venueSuffix}`}
+                    style={{ border: "1px solid #C7D1DA", borderRadius: 7, padding: "8px 12px", fontSize: 12, fontWeight: 600, color: "#33475B", display: "inline-block" }}
+                  >
+                    ⎙ PDF
+                  </a>
+                  <a
+                    href={`/vlm/export?format=csv&from=${dayIso(day)}&to=${dayIso(day)}${venueSuffix}`}
+                    style={{ border: "1px solid #C7D1DA", borderRadius: 7, padding: "8px 12px", fontSize: 12, fontWeight: 600, color: "#33475B", display: "inline-block" }}
+                  >
+                    Excel ↓
+                  </a>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
@@ -219,5 +256,76 @@ function Legend({ color, label }: { color: string; label: string }) {
       <span style={{ width: 10, height: 10, background: color, borderRadius: 3 }} />
       {label}
     </span>
+  );
+}
+
+/** Per-day breakdown for a selected date range (items #7/#8): historical days
+ *  show booking totals by day, current/future days show slot-level detail —
+ *  scoped to the dashboard's primary venue, same as the single-day load grid. */
+function RangeReportSection({
+  t,
+  report,
+  primaryName,
+}: {
+  t: Dict;
+  report: RangeReport;
+  primaryName?: string;
+}) {
+  if (report.days.length === 0) {
+    return (
+      <div style={cardStyle}>
+        <p style={{ fontSize: 12, color: "#9AA7B2" }}>{t.noBookings}</p>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {report.truncated && (
+        <p style={{ fontSize: 11.5, color: "var(--st-pending-text)" }}>{t.rangeReportTruncated}</p>
+      )}
+      {report.days.map((d) => (
+        <div key={d.dateIso} style={cardStyle}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+            <h3 style={{ fontSize: 13.5, fontWeight: 700 }}>{d.dateDisplay}</h3>
+            <span
+              style={{
+                fontSize: 10.5,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: ".04em",
+                color: d.historical ? "#5A6B7C" : "var(--blue)",
+              }}
+            >
+              {d.historical ? t.rangeHistorical : t.rangeUpcoming}
+            </span>
+          </div>
+
+          {d.historical ? (
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12 }}>
+              <span>
+                {t.rangeTotalBookings}: <b className="mono">{d.totalBookings}</b>
+              </span>
+              <Legend color="var(--st-confirmed)" label={`${t.stConfirmedPl} ${d.byStatus?.Confirmed ?? 0}`} />
+              <Legend color="var(--st-pending)" label={`${t.stPendingPl} ${d.byStatus?.PendingValidation ?? 0}`} />
+              <Legend color="var(--st-cancelled)" label={`${t.stCancelledPl} ${d.byStatus?.Cancelled ?? 0}`} />
+              <Legend color="var(--st-expired)" label={`${t.stExpiredPl} ${d.byStatus?.Expired ?? 0}`} />
+            </div>
+          ) : !d.open ? (
+            <p style={{ fontSize: 12, color: "#9AA7B2" }}>{t.closedDay}</p>
+          ) : (
+            <>
+              <div style={{ fontSize: 11, color: "#5A6B7C", marginBottom: 8 }}>
+                {primaryName ?? "—"} · <span className="mono">{d.bookedCount} / {d.slots?.length ?? 0}</span> {t.rangeSlotsBooked}
+              </div>
+              <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                {(d.slots ?? []).map((s) => (
+                  <div key={s.time} title={s.time} style={{ width: 22, height: 22, borderRadius: 4, background: s.booked ? "var(--blue)" : "#E3E9EF" }} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }

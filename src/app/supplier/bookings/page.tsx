@@ -11,7 +11,7 @@ import { supplierNav } from "@/lib/nav";
 export default async function SupplierBookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; sort?: string }>;
 }) {
   const user = await requireRole("supplier");
   const { lang, t } = await getTranslations();
@@ -25,10 +25,15 @@ export default async function SupplierBookingsPage({
   if (sp.to && /^\d{4}-\d{2}-\d{2}$/.test(sp.to)) dateRange.lte = parseDakarDay(sp.to);
   if (Object.keys(dateRange).length) where.serviceDate = dateRange;
 
+  // Newest ⇄ Oldest sort (item #10) — newest first by default.
   const bookings = await prisma.booking.findMany({
     where,
-    include: { venue: true },
-    orderBy: { createdAt: "desc" },
+    include: {
+      venue: true,
+      // Latest cancellation reason, if any, for the status-badge tooltip (item #5).
+      auditEntries: { where: { action: "cancelled" }, orderBy: { timestamp: "desc" }, take: 1 },
+    },
+    orderBy: { createdAt: sp.sort === "oldest" ? "asc" : "desc" },
     take: 50,
   });
 
@@ -44,6 +49,7 @@ export default async function SupplierBookingsPage({
     status: b.status,
     canCancel:
       ACTIVE_STATUSES.includes(b.status as BookingStatus) && b.slotStart.getTime() > now,
+    cancelReason: b.auditEntries[0]?.reason ?? null,
   }));
 
   const nav: NavItem[] = supplierNav("mine", t);

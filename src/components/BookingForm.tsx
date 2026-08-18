@@ -189,6 +189,8 @@ export function BookingForm({
     selectionValid &&
     !!supplierContact &&
     !!transporterName &&
+    !!packagingType &&
+    !!quantity.trim() &&
     !pending;
 
   function submit() {
@@ -216,10 +218,27 @@ export function BookingForm({
       });
       if (res.ok) {
         setResult({ ok: true, msg: res.reference, id: res.id });
-        setSel(new Set());
+        // Clear the whole form (item #11) — the success banner above stays
+        // visible so the reference/PDF link aren't lost, but every field,
+        // dropdown, date and slot selection resets for the next booking.
+        setType("delivery");
         setTransporterName("");
         setTransporterContact("");
-        getSlots(venueId, dateIso).then(setSlotState);
+        setSupplierContact(supplierPhone ?? "");
+        setVehicleType(vehicleTypes[0] ?? "");
+        setMerchandiseType(merchTypes[0] ?? "");
+        setPackagingType("");
+        setQuantity("");
+        setWeightKg("");
+        setVolumeM3("");
+        setComments("");
+        setVenueId("");
+        setDateIso(defaultDate);
+        setRouting([]);
+        setCompoundId("");
+        setGateId("");
+        setSlotState({ open: false, slots: [] });
+        setSel(new Set());
         router.refresh();
       } else {
         setResult({ ok: false, msg: res.error });
@@ -304,7 +323,7 @@ export function BookingForm({
           </div>
           <div>
             <label style={label}>
-              {t.packType} <span style={{ color: "#9AA7B2" }}>{t.optional}</span>
+              {t.packType} <RequiredMark t={t} />
             </label>
             <select value={packagingType} onChange={(e) => setPackagingType(e.target.value)} style={control}>
               <option value="">—</option>
@@ -315,7 +334,9 @@ export function BookingForm({
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
             <div>
-              <label style={label}>{t.qty}</label>
+              <label style={label}>
+                {t.qty} <RequiredMark t={t} />
+              </label>
               <input value={quantity} onChange={(e) => setQuantity(e.target.value)} style={control} />
             </div>
             <div>

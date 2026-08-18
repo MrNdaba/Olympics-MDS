@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Dict } from "@/lib/i18n";
 import { StatusChip, TypeChip } from "./Chips";
+import { ModalCloseButton } from "./ModalCloseButton";
 import {
   validateBookingAction,
   rejectBookingAction,
@@ -26,6 +27,8 @@ export interface VlmRow {
   canValidate: boolean;
   canCancel: boolean;
   canReinstate: boolean;
+  /** Reason stored on the "cancelled" audit entry, if any (item #5). */
+  cancelReason?: string | null;
 }
 
 const th: React.CSSProperties = {
@@ -64,12 +67,14 @@ export function VlmBookingsTable({ t, rows }: { t: Dict; rows: VlmRow[] }) {
 
   function submitDialog() {
     if (!dialog) return;
-    if ((dialog.kind === "reject" || dialog.kind === "reinstate") && !reason.trim()) {
+    // A reason is mandatory for every one of these actions (item #5 covers
+    // cancellation; reject/reinstate already required one).
+    if (!reason.trim()) {
       setError(t.reasonRequired);
       return;
     }
     if (dialog.kind === "reject") run(() => rejectBookingAction(dialog.id, reason));
-    if (dialog.kind === "cancel") run(() => cancelBookingAction(dialog.id, reason || undefined));
+    if (dialog.kind === "cancel") run(() => cancelBookingAction(dialog.id, reason));
     if (dialog.kind === "reinstate") run(() => reinstateBookingAction(dialog.id, reason));
   }
 
@@ -140,7 +145,7 @@ export function VlmBookingsTable({ t, rows }: { t: Dict; rows: VlmRow[] }) {
                   <td style={td}>{r.transporterName}</td>
                   <td style={td}>{r.compoundLabel}</td>
                   <td style={td}>{r.gateLabel}</td>
-                  <td style={td}><StatusChip status={r.status} t={t} /></td>
+                  <td style={td}><StatusChip status={r.status} t={t} reason={r.cancelReason} /></td>
                   <td style={td}>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       {r.canValidate && solidBtn("var(--st-confirmed)", `✓ ${t.validate}`, () => run(() => validateBookingAction(r.id)))}
@@ -174,13 +179,14 @@ export function VlmBookingsTable({ t, rows }: { t: Dict; rows: VlmRow[] }) {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: "#fff", borderRadius: 12, padding: 22, width: 420, maxWidth: "90vw", boxShadow: "0 20px 50px rgba(0,0,0,.25)" }}
+            style={{ position: "relative", background: "#fff", borderRadius: 12, padding: 22, width: 420, maxWidth: "90vw", boxShadow: "0 20px 50px rgba(0,0,0,.25)" }}
           >
-            <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>
+            <ModalCloseButton onClick={() => setDialog(null)} disabled={pending} label={t.closeModal} />
+            <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 12, paddingRight: 24 }}>
               {dialog.kind === "reject" ? t.confirmReject : dialog.kind === "reinstate" ? t.reinstate : t.confirmCancel}
             </h3>
             <label style={{ fontWeight: 600, fontSize: 11.5, color: "#33475B", display: "block", marginBottom: 6 }}>
-              {dialog.kind === "cancel" ? `${t.reasonLabel} ${t.optional}` : t.reasonRequired}
+              {t.reasonRequired}
             </label>
             <textarea
               value={reason}
@@ -189,11 +195,21 @@ export function VlmBookingsTable({ t, rows }: { t: Dict; rows: VlmRow[] }) {
               style={{ width: "100%", border: "1px solid #C7D1DA", borderRadius: 7, padding: 10, fontSize: 12.5, resize: "vertical" }}
             />
             {error && <p style={{ color: "var(--st-cancelled-text)", fontSize: 12, marginTop: 8 }}>{error}</p>}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
-              <button type="button" disabled={pending} onClick={() => setDialog(null)} style={{ background: "#fff", border: "1px solid #C7D1DA", borderRadius: 7, padding: "8px 14px", fontSize: 12.5, fontWeight: 600, color: "#5A6B7C" }}>
-                {t.cancel}
-              </button>
-              <button type="button" disabled={pending} onClick={submitDialog} style={{ background: dialog.kind === "reinstate" ? "var(--blue)" : "var(--st-cancelled)", border: "none", borderRadius: 7, padding: "8px 14px", fontSize: 12.5, fontWeight: 700, color: "#fff" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+              <button
+                type="button"
+                disabled={pending || !reason.trim()}
+                onClick={submitDialog}
+                style={{
+                  background: !reason.trim() ? "#B6C0C9" : dialog.kind === "reinstate" ? "var(--blue)" : "var(--st-cancelled)",
+                  border: "none",
+                  borderRadius: 7,
+                  padding: "8px 14px",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  color: "#fff",
+                }}
+              >
                 {dialog.kind === "reject" ? t.reject : dialog.kind === "reinstate" ? t.reinstate : t.cancel}
               </button>
             </div>

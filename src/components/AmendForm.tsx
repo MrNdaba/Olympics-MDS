@@ -46,6 +46,15 @@ const label: React.CSSProperties = { fontWeight: 600, fontSize: 11, color: "#334
 const control: React.CSSProperties = { height: 36, borderRadius: 7, border: "1px solid #C7D1DA", padding: "0 10px", fontSize: 12.5, width: "100%", background: "#fff" };
 const card: React.CSSProperties = { background: "#fff", border: "1px solid var(--border-card)", borderRadius: 10, padding: "22px 24px" };
 
+/** Red asterisk marking a mandatory field — mirrors BookingForm's RequiredMark. */
+function RequiredMark({ t }: { t: Dict }) {
+  return (
+    <span style={{ color: "var(--st-cancelled-text)" }} title={t.requiredField} aria-label={t.requiredField}>
+      *
+    </span>
+  );
+}
+
 export function AmendForm({
   t,
   lang,
@@ -161,7 +170,17 @@ export function AmendForm({
   const selectionValid = selectedSlots.length > 0 && isContiguous && withinCap;
 
   const totalMinutes = selWindow ? selWindow.end - selWindow.start : 0;
-  const canSubmit = !!venueId && !!compoundId && !!effectiveGateId && selectionValid && !!supplierContact && !!transporterName && !!transporterContact && !pending;
+  const canSubmit =
+    !!venueId &&
+    !!compoundId &&
+    !!effectiveGateId &&
+    selectionValid &&
+    !!supplierContact &&
+    !!transporterName &&
+    !!transporterContact &&
+    !!packagingType &&
+    !!quantity.trim() &&
+    !pending;
 
   function submit() {
     if (!selectionValid || !selWindow) return;
@@ -248,14 +267,14 @@ export function AmendForm({
             </select>
           </div>
           <div>
-            <label style={label}>{t.packType} <span style={{ color: "#9AA7B2" }}>{t.optional}</span></label>
+            <label style={label}>{t.packType} <RequiredMark t={t} /></label>
             <select value={packagingType} onChange={(e) => setPackagingType(e.target.value)} style={control}>
               <option value="">—</option>
               {packTypes.map((v) => <option key={v} value={v}>{translateMasterData(v, lang)}</option>)}
             </select>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-            <div><label style={label}>{t.qty}</label><input value={quantity} onChange={(e) => setQuantity(e.target.value)} style={control} /></div>
+            <div><label style={label}>{t.qty} <RequiredMark t={t} /></label><input value={quantity} onChange={(e) => setQuantity(e.target.value)} style={control} /></div>
             <div><label style={label}>{t.weight}</label><input value={weightKg} onChange={(e) => setWeightKg(e.target.value)} inputMode="decimal" style={control} /></div>
             <div><label style={label}>{t.volume}</label><input value={volumeM3} onChange={(e) => setVolumeM3(e.target.value)} inputMode="decimal" style={control} /></div>
           </div>

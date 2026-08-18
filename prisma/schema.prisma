@@ -74,6 +74,7 @@ model Venue {
   status                     String            @default("active") // 'active' | 'inactive'
   bookingWindowOpen          Boolean           @default(true) // VLM/Admin toggle (§15.5)
   defaultSlotDurationMinutes Int               @default(30)
+  createdAt                  DateTime          @default(now()) // sort key for admin venue lists
   operatingDays              OperatingDay[]
   compounds                  Compound[]
   gates                      Gate[]

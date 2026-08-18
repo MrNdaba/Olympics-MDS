@@ -105,7 +105,7 @@ export async function createBookingAction(
 
 export async function cancelMyBooking(
   bookingId: string,
-  reason?: string,
+  reason: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const user = await requireRole("supplier");
   const { prisma } = await import("@/lib/db");

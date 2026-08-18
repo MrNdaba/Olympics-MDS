@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Dict } from "@/lib/i18n";
 import { StatusChip, TypeChip } from "./Chips";
+import { SortControl } from "./SortControl";
+import { ModalCloseButton } from "./ModalCloseButton";
 import { cancelMyBooking } from "@/app/supplier/actions";
 
 export interface BookingRow {
@@ -16,6 +18,8 @@ export interface BookingRow {
   window: string;
   status: string;
   canCancel: boolean;
+  /** Reason stored on the "cancelled" audit entry, if any (item #5). */
+  cancelReason?: string | null;
 }
 
 const th: React.CSSProperties = {
@@ -45,9 +49,13 @@ export function MyBookings({ t, rows }: { t: Dict; rows: BookingRow[] }) {
 
   function confirmCancel() {
     if (!dialogId) return;
+    if (!reason.trim()) {
+      setError(t.reasonRequired);
+      return;
+    }
     setError(null);
     startTransition(async () => {
-      const res = await cancelMyBooking(dialogId, reason.trim() || undefined);
+      const res = await cancelMyBooking(dialogId, reason.trim());
       if (res.ok) {
         setDialogId(null);
         setReason("");
@@ -62,6 +70,7 @@ export function MyBookings({ t, rows }: { t: Dict; rows: BookingRow[] }) {
     <div style={{ background: "#fff", border: "1px solid var(--border-card)", borderRadius: 10, overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px" }}>
         <h2 style={{ fontWeight: 700, fontSize: 15 }}>{t.myBookings}</h2>
+        <SortControl t={t} basePath="/supplier/bookings" />
       </div>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 820 }}>
@@ -96,7 +105,7 @@ export function MyBookings({ t, rows }: { t: Dict; rows: BookingRow[] }) {
                   <td style={td}>{r.dateDisplay}</td>
                   <td style={{ ...td, ...mono }}>{r.window}</td>
                   <td style={td}>
-                    <StatusChip status={r.status} t={t} />
+                    <StatusChip status={r.status} t={t} reason={r.cancelReason} />
                   </td>
                   <td style={td}>
                     {r.canCancel ? (
@@ -140,12 +149,13 @@ export function MyBookings({ t, rows }: { t: Dict; rows: BookingRow[] }) {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: "#fff", borderRadius: 12, padding: 22, width: 420, maxWidth: "90vw", boxShadow: "0 20px 50px rgba(0,0,0,.25)" }}
+            style={{ position: "relative", background: "#fff", borderRadius: 12, padding: 22, width: 420, maxWidth: "90vw", boxShadow: "0 20px 50px rgba(0,0,0,.25)" }}
           >
-            <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>{t.confirmCancel}</h3>
+            <ModalCloseButton onClick={() => setDialogId(null)} disabled={pending} label={t.closeModal} />
+            <h3 style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, paddingRight: 24 }}>{t.confirmCancel}</h3>
             <p style={{ fontSize: 12.5, color: "#5A6B7C", marginBottom: 12 }}>{t.confirmCancelBooking}</p>
             <label style={{ fontWeight: 600, fontSize: 11.5, color: "#33475B", display: "block", marginBottom: 6 }}>
-              {t.reasonLabel} {t.optional}
+              {t.reasonRequired}
             </label>
             <textarea
               value={reason}
@@ -155,20 +165,20 @@ export function MyBookings({ t, rows }: { t: Dict; rows: BookingRow[] }) {
               style={{ width: "100%", border: "1px solid #C7D1DA", borderRadius: 7, padding: 10, fontSize: 12.5, resize: "vertical" }}
             />
             {error && <p style={{ color: "var(--st-cancelled-text)", fontSize: 12, marginTop: 8 }}>{error}</p>}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
               <button
                 type="button"
-                disabled={pending}
-                onClick={() => setDialogId(null)}
-                style={{ background: "#fff", border: "1px solid #C7D1DA", borderRadius: 7, padding: "8px 14px", fontSize: 12.5, fontWeight: 600, color: "#5A6B7C" }}
-              >
-                {t.keepBooking}
-              </button>
-              <button
-                type="button"
-                disabled={pending}
+                disabled={pending || !reason.trim()}
                 onClick={confirmCancel}
-                style={{ background: "var(--st-cancelled)", border: "none", borderRadius: 7, padding: "8px 14px", fontSize: 12.5, fontWeight: 700, color: "#fff" }}
+                style={{
+                  background: pending || !reason.trim() ? "#E7ADA9" : "var(--st-cancelled)",
+                  border: "none",
+                  borderRadius: 7,
+                  padding: "8px 14px",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  color: "#fff",
+                }}
               >
                 {t.confirmCancelAction}
               </button>

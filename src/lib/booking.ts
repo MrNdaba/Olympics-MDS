@@ -46,6 +46,14 @@ export async function createBooking(input: CreateBookingInput, user: SessionUser
   if (!input.supplierContact || !input.supplierContact.trim()) {
     throw new BookingError("Supplier phone number is required.");
   }
+  // Minimum operational data for planning (item #4): packaging type and
+  // quantity are mandatory on every booking.
+  if (!input.packagingType || !input.packagingType.trim()) {
+    throw new BookingError("Packaging type is required.");
+  }
+  if (!input.quantity || !input.quantity.trim()) {
+    throw new BookingError("Quantity is required.");
+  }
 
   const venue = await prisma.venue.findUnique({ where: { id: input.venueId } });
   if (!venue || venue.status !== "active") {
@@ -377,8 +385,11 @@ export async function rejectBooking(bookingId: string, user: SessionUser, reason
   log.info("booking.rejected", { bookingId, userId: user.id });
 }
 
-/** Cancellation before slot start. Supplier reason optional, VLM/Admin any time. */
-export async function cancelBooking(bookingId: string, user: SessionUser, reason?: string) {
+/** Cancellation before slot start — Supplier, VLM and Admin alike. A reason is
+ *  mandatory (item #5): it's stored on the audit entry linked to this booking
+ *  and surfaced back to users via a tooltip on the Cancelled status badge. */
+export async function cancelBooking(bookingId: string, user: SessionUser, reason: string) {
+  if (!reason?.trim()) throw new BookingError("A reason is required to cancel.");
   const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
   if (!booking) throw new BookingError("Booking not found.");
   if (!ACTIVE_STATUSES.includes(booking.status as BookingStatus)) {
@@ -469,6 +480,12 @@ export async function amendBooking(
 ) {
   if (!input.supplierContact || !input.supplierContact.trim()) {
     throw new BookingError("Supplier phone number is required.");
+  }
+  if (!input.packagingType || !input.packagingType.trim()) {
+    throw new BookingError("Packaging type is required.");
+  }
+  if (!input.quantity || !input.quantity.trim()) {
+    throw new BookingError("Quantity is required.");
   }
 
   const booking = await prisma.booking.findUnique({ where: { id: bookingId } });

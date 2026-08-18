@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Dict } from "@/lib/i18n";
 import { PhoneInput } from "@/components/PhoneInput";
@@ -27,6 +27,8 @@ export interface UserRow {
   otpChannel: string;
   venues: string[];
   venueIds: string[];
+  /** ISO timestamp — sort key for the Newest/Oldest toggle (item #10). */
+  createdAt: string;
 }
 
 const card: React.CSSProperties = { background: "#fff", border: "1px solid var(--border-card)", borderRadius: 10, padding: "20px 22px" };
@@ -59,21 +61,39 @@ export function UsersAdmin({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
+  // Newest ⇄ Oldest sort (item #10) — client-side since this table has no
+  // server-driven pagination to push a `sort` query param through.
+  const [sortDir, setSortDir] = useState<"newest" | "oldest">("newest");
+  const sortedUsers = useMemo(
+    () =>
+      [...users].sort((a, b) =>
+        sortDir === "newest" ? b.createdAt.localeCompare(a.createdAt) : a.createdAt.localeCompare(b.createdAt),
+      ),
+    [users, sortDir],
+  );
+
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState<CreateUserInput["role"]>("supplier");
-  const [otpChannel, setOtpChannel] = useState<"email" | "sms">("email");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("TempPass1234!");
   const [venueIds, setVenueIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
+  // No incomplete user records (item #12) — block Create until every
+  // required field is present (phone only required for supplier accounts).
+  const canSubmit =
+    !!email.trim() &&
+    !!name.trim() &&
+    !!password.trim() &&
+    (role !== "supplier" || !!phone.trim()) &&
+    !pending;
+
   // Edit-user modal state.
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [eName, setEName] = useState("");
   const [eRole, setERole] = useState<CreateUserInput["role"]>("supplier");
-  const [eOtpChannel, setEOtpChannel] = useState<"email" | "sms">("email");
   const [ePhone, setEPhone] = useState("");
   const [eVenueIds, setEVenueIds] = useState<string[]>([]);
   const [eError, setEError] = useState<string | null>(null);
@@ -90,7 +110,6 @@ export function UsersAdmin({
     setEditing(u);
     setEName(u.name);
     setERole(u.role as CreateUserInput["role"]);
-    setEOtpChannel(u.otpChannel === "sms" ? "sms" : "email");
     setEPhone(u.phone);
     setEVenueIds(u.venueIds);
     setEError(null);
@@ -104,7 +123,7 @@ export function UsersAdmin({
         userId: editing.id,
         name: eName,
         role: eRole,
-        otpChannel: eOtpChannel,
+        otpChannel: "email",
         phone: ePhone,
         venueIds: eVenueIds,
       });
@@ -118,10 +137,11 @@ export function UsersAdmin({
   }
 
   function submit() {
+    if (!canSubmit) return;
     setError(null);
     setOk(null);
     startTransition(async () => {
-      const res = await createUserAction({ email, name, role, otpChannel, phone, password, venueIds });
+      const res = await createUserAction({ email, name, role, otpChannel: "email", phone, password, venueIds });
       if (res.ok) {
         setOk(email);
         setEmail("");
@@ -195,19 +215,12 @@ export function UsersAdmin({
             </div>
           )}
           <div>
-            <label style={labelS}>{t.otpChannelLabel}</label>
-            <select value={otpChannel} onChange={(e) => setOtpChannel(e.target.value as "email" | "sms")} style={control}>
-              <option value="email">Email</option>
-              <option value="sms">SMS</option>
-            </select>
-          </div>
-          <div>
-            <label style={labelS}>{t.tempPassword}</label>
+            <label style={labelS}>{t.tempPassword} <RequiredMark t={t} /></label>
             <input value={password} onChange={(e) => setPassword(e.target.value)} style={control} />
           </div>
           {error && <p style={{ color: "var(--st-cancelled-text)", fontSize: 12 }}>{error}</p>}
           {ok && <p style={{ color: "var(--st-confirmed-text)", fontSize: 12 }}>✓ {ok}</p>}
-          <button type="button" disabled={pending} onClick={submit} style={{ height: 40, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 13 }}>
+          <button type="button" disabled={!canSubmit} onClick={submit} style={{ height: 40, borderRadius: 7, border: "none", background: canSubmit ? "var(--blue)" : "#B6C0C9", color: "#fff", fontWeight: 700, fontSize: 13 }}>
             {t.create}
           </button>
         </div>
@@ -215,6 +228,15 @@ export function UsersAdmin({
 
       {/* Users table */}
       <div style={{ background: "#fff", border: "1px solid var(--border-card)", borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "10px 14px", borderBottom: "1px solid #F0F3F6" }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#5A6B7C" }}>
+            {t.sortLabel}
+            <select value={sortDir} onChange={(e) => setSortDir(e.target.value as "newest" | "oldest")} style={{ ...control, height: 30, width: "auto" }}>
+              <option value="newest">{t.sortNewest}</option>
+              <option value="oldest">{t.sortOldest}</option>
+            </select>
+          </label>
+        </div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead style={{ background: "#F8FAFB" }}>
             <tr>
@@ -227,7 +249,7 @@ export function UsersAdmin({
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
+            {sortedUsers.map((u) => (
               <tr key={u.id} style={{ opacity: u.status === "deactivated" ? 0.6 : 1 }}>
                 <td style={td}>{u.name}</td>
                 <td style={{ ...td, fontFamily: "var(--font-mono)", fontSize: 11.5 }}>{u.email}</td>
@@ -289,20 +311,11 @@ export function UsersAdmin({
                   </div>
                 </div>
               )}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <div>
-                  <label style={labelS}>{t.otpChannelLabel}</label>
-                  <select value={eOtpChannel} onChange={(e) => setEOtpChannel(e.target.value as "email" | "sms")} style={control}>
-                    <option value="email">Email</option>
-                    <option value="sms">SMS</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={labelS}>
-                    {t.phone} {eRole === "supplier" ? <RequiredMark t={t} /> : <span style={{ color: "#9AA7B2" }}>{t.optional}</span>}
-                  </label>
-                  <PhoneInput value={ePhone} onChange={setEPhone} />
-                </div>
+              <div>
+                <label style={labelS}>
+                  {t.phone} {eRole === "supplier" ? <RequiredMark t={t} /> : <span style={{ color: "#9AA7B2" }}>{t.optional}</span>}
+                </label>
+                <PhoneInput value={ePhone} onChange={setEPhone} />
               </div>
               {eError && <p style={{ color: "var(--st-cancelled-text)", fontSize: 12 }}>{eError}</p>}
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>

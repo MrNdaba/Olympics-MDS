@@ -31,6 +31,7 @@ export default async function AdminUsersPage() {
     otpChannel: u.otpChannel,
     venues: u.venueAssignments.map((a) => a.venue.siteCode),
     venueIds: u.venueAssignments.map((a) => a.venueId),
+    createdAt: u.createdAt.toISOString(),
   }));
 
   const nav: NavItem[] = adminNav("users", t);

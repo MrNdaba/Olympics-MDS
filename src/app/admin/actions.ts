@@ -21,7 +21,7 @@ export interface CreateUserInput {
   email: string;
   name: string;
   role: Role;
-  otpChannel: "email" | "sms";
+  otpChannel: "email";
   phone?: string;
   password: string;
   venueIds: string[];
@@ -75,7 +75,7 @@ export interface UpdateUserInput {
   userId: string;
   name: string;
   role: Role;
-  otpChannel: "email" | "sms";
+  otpChannel: "email";
   phone?: string;
   venueIds: string[];
 }
@@ -188,12 +188,24 @@ export interface CreateVenueInput {
 export async function createVenueAction(input: CreateVenueInput): Promise<Result> {
   const admin = await requireRole("admin");
   const siteCode = input.siteCode.trim().toUpperCase();
-  if (!input.name.trim() || !siteCode || !input.city.trim()) {
-    return { ok: false, error: "Name, site code and city are required." };
+
+  // No incomplete venue records (item #12): every field below must be present
+  // and valid, named explicitly rather than silently defaulted.
+  const missing: string[] = [];
+  if (!input.name.trim()) missing.push("name");
+  if (!siteCode) missing.push("site code");
+  if (!input.city.trim()) missing.push("city");
+  if (input.slotDuration === undefined || input.slotDuration === null || Number.isNaN(Number(input.slotDuration))) {
+    missing.push("slot duration");
+  }
+  if (missing.length > 0) {
+    return { ok: false, error: `Missing required field${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}.` };
   }
   if (!/^[A-Z]{3}$/.test(siteCode)) return { ok: false, error: "Site code must be 3 letters." };
-  const duration = Number(input.slotDuration) || 30;
-  if (duration < 5 || duration > 240) return { ok: false, error: "Slot duration must be 5–240 min." };
+  const duration = Number(input.slotDuration);
+  if (!Number.isFinite(duration) || duration < 5 || duration > 240) {
+    return { ok: false, error: "Slot duration must be 5–240 min." };
+  }
 
   const existing = await prisma.venue.findUnique({ where: { siteCode } });
   if (existing) return { ok: false, error: "A venue with this site code already exists." };

@@ -48,7 +48,7 @@ export async function rejectBookingAction(bookingId: string, reason: string): Pr
   }
 }
 
-export async function cancelBookingAction(bookingId: string, reason?: string): Promise<Result> {
+export async function cancelBookingAction(bookingId: string, reason: string): Promise<Result> {
   const { user, booking } = await loadScoped(bookingId);
   if (!booking) return { ok: false, error: "Not found." };
   try {

@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import type { Dict } from "@/lib/i18n";
 import { DateRangeFilter } from "./DateRangeFilter";
+import { SortControl } from "./SortControl";
 
 const chip: React.CSSProperties = {
   height: 32,
@@ -84,6 +85,7 @@ export function FilterBar({
         <option value="collection">{t.collection}</option>
       </select>
       <DateRangeFilter t={t} basePath="/vlm" />
+      <SortControl t={t} basePath="/vlm" />
       <span
         style={{
           marginLeft: "auto",

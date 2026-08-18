@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { TopBar, type NavItem } from "@/components/TopBar";
 import { adminNav, vlmNav } from "@/lib/nav";
 import { SettingsForm } from "@/components/SettingsForm";
-import type { OtpChannel } from "@/lib/constants";
 
 export default async function SettingsPage() {
   const user = await requireUser();
@@ -12,7 +11,7 @@ export default async function SettingsPage() {
 
   const record = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { phone: true, otpChannel: true, mustChangePassword: true },
+    select: { phone: true, mustChangePassword: true },
   });
 
   const nav: NavItem[] =
@@ -36,7 +35,6 @@ export default async function SettingsPage() {
         <SettingsForm
           t={t}
           phone={record?.phone ?? ""}
-          otpChannel={(record?.otpChannel as OtpChannel) ?? "email"}
           mustChange={record?.mustChangePassword ?? false}
         />
       </main>

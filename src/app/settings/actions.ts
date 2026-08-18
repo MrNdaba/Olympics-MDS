@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword, validatePasswordPolicy } from "@/lib/password";
-import { OTP_CHANNELS, type OtpChannel, type Role } from "@/lib/constants";
+import type { Role } from "@/lib/constants";
 import { log } from "@/lib/logger";
 
 type Result = { ok: boolean; error?: string };
@@ -38,22 +38,16 @@ export async function changePasswordAction(
   return { ok: true };
 }
 
-/** Update own contact details and preferred OTP channel (§5, §15.2). */
-export async function updateContactAction(
-  phone: string,
-  otpChannel: OtpChannel,
-): Promise<Result> {
+/** Update own contact details (§5, §15.2). OTP channel is fixed to email
+ *  (item #9) — no longer a user choice. */
+export async function updateContactAction(phone: string): Promise<Result> {
   const sessionUser = await requireUser();
-  if (!OTP_CHANNELS.includes(otpChannel)) return { ok: false, error: "Invalid channel." };
   const trimmed = phone.trim();
-  if (otpChannel === "sms" && !trimmed) {
-    return { ok: false, error: "A phone number is required for SMS." };
-  }
   await prisma.user.update({
     where: { id: sessionUser.id },
-    data: { phone: trimmed || null, otpChannel },
+    data: { phone: trimmed || null, otpChannel: "email" },
   });
-  log.info("user.contact_updated", { userId: sessionUser.id, otpChannel });
+  log.info("user.contact_updated", { userId: sessionUser.id });
   revalidatePath("/settings");
   return { ok: true };
 }

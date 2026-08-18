@@ -6,9 +6,9 @@ import { notifications } from "./notifications";
 import { log } from "./logger";
 
 /** Issue a one-time 6-digit code (single use, 10-min validity) and dispatch it
- *  through the notification provider (email default / SMS) — D2/§5. Returns the
- *  challenge id. The plaintext code is only returned in non-production so the
- *  demo login screen can display it; it is never logged. */
+ *  through the notification provider (email only — D2/§5, item #9). Returns
+ *  the challenge id. The plaintext code is only returned in non-production so
+ *  the demo login screen can display it; it is never logged. */
 export async function issueOtp(
   userId: string,
   channel: OtpChannel,

@@ -145,6 +145,53 @@ textarea {
   color: var(--st-expired-text);
 }
 
+/* Hover tooltip on the Cancelled status chip, surfacing the stored
+   cancellation reason (audit trail visibility — see BookingAuditEntry.reason). */
+.reason-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+.reason-tooltip[data-has-reason="true"] .status-chip {
+  cursor: help;
+  text-decoration: underline dashed;
+  text-underline-offset: 3px;
+}
+.reason-tooltip-bubble {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  width: max-content;
+  max-width: 260px;
+  background: #12202e;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 8px 10px;
+  border-radius: 7px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  pointer-events: none;
+}
+.reason-tooltip-bubble::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 14px;
+  border: 5px solid transparent;
+  border-top-color: #12202e;
+}
+.reason-tooltip:hover .reason-tooltip-bubble,
+.reason-tooltip:focus-within .reason-tooltip-bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
 /* Booking-type chip (labelled column everywhere, spec §11.2) */
 .type-chip {
   display: inline-flex;

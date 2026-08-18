@@ -1,10 +1,11 @@
 import { prisma } from "./db";
 
 // Notification provider interface (D7). In dev/test every message is written to
-// the NotificationOutbox and logged — no real email/SMS leaves non-prod.
+// the NotificationOutbox and logged — no real messages leave non-prod.
 // A production adapter would implement `send` against a real provider.
+// Email is the only outbound channel — SMS was removed (item #9).
 
-export type NotificationChannel = "email" | "sms" | "inApp";
+export type NotificationChannel = "email" | "inApp";
 
 export interface OutboundMessage {
   channel: NotificationChannel;

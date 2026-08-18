@@ -22,6 +22,7 @@ export default async function AdminVenuesPage() {
     status: v.status,
     slotDuration: v.defaultSlotDurationMinutes,
     bookings: v._count.bookings,
+    createdAt: v.createdAt.toISOString(),
   }));
 
   const nav: NavItem[] = adminNav("venues", t);
