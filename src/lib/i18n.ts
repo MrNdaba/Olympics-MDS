@@ -246,12 +246,10 @@ export const dict = {
     sortLabel: "Trier",
     sortNewest: "Plus récent → Plus ancien",
     sortOldest: "Plus ancien → Plus récent",
-    rangeReportTitle: "Rapport par période",
-    rangeReportTruncated: "Période limitée à 31 jours affichés.",
-    rangeHistorical: "Historique",
-    rangeUpcoming: "À venir",
-    rangeTotalBookings: "Total réservations",
-    rangeSlotsBooked: "créneaux occupés",
+    bookingTotalsByDay: "Total des réservations par jour",
+    slotLevelDetails: "Détail par créneau",
+    slotBookingCount: "Réservations",
+    activeSlotCount: "Actives",
   },
   en: {
     loginTagline:
@@ -494,12 +492,10 @@ export const dict = {
     sortLabel: "Sort",
     sortNewest: "Newest → Oldest",
     sortOldest: "Oldest → Newest",
-    rangeReportTitle: "Date range report",
-    rangeReportTruncated: "Range capped at 31 days shown.",
-    rangeHistorical: "Historical",
-    rangeUpcoming: "Upcoming",
-    rangeTotalBookings: "Total bookings",
-    rangeSlotsBooked: "slots booked",
+    bookingTotalsByDay: "Booking totals by day",
+    slotLevelDetails: "Slot-level details",
+    slotBookingCount: "Bookings",
+    activeSlotCount: "Active",
   },
 } as const;
 
