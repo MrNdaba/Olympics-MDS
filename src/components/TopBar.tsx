@@ -126,7 +126,7 @@ export function TopBar({
                 width: 30,
                 height: 30,
                 borderRadius: "50%",
-                background: user.role === "vlm" ? "#12202E" : "var(--blue)",
+                background: user.role === "vlm" || user.role === "viewer" ? "#12202E" : "var(--blue)",
                 color: "#fff",
                 display: "grid",
                 placeItems: "center",

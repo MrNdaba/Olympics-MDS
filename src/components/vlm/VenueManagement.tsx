@@ -44,9 +44,20 @@ const control: React.CSSProperties = { height: 36, borderRadius: 7, border: "1px
 const th: React.CSSProperties = { fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: ".05em", color: "#5A6B7C", textAlign: "left", padding: "10px 14px" };
 const td: React.CSSProperties = { padding: "10px 14px", fontSize: 12.5, borderTop: "1px solid #F0F3F6" };
 
-export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[] }) {
+export function VenueManagement({
+  t,
+  venues,
+  readOnly = false,
+}: {
+  t: Dict;
+  venues: ManagedVenue[];
+  /** View Only accounts (item #3): render the same venue-management screens
+   *  read-only — no window/slot/hours/compound/gate/routing mutation. */
+  readOnly?: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const disabled = pending || readOnly;
   const [selectedId, setSelectedId] = useState(venues[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
 
@@ -130,14 +141,16 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
             >
               {venue.bookingWindowOpen ? t.windowOpen : t.windowClosed}
             </span>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => run(() => setBookingWindowAction(venue.id, !venue.bookingWindowOpen))}
-              style={{ height: 36, borderRadius: 7, border: "1px solid #C7D1DA", background: "#fff", fontWeight: 600, fontSize: 12.5, padding: "0 14px", color: "#33475B" }}
-            >
-              {venue.bookingWindowOpen ? t.windowClosed : t.windowOpen}
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => run(() => setBookingWindowAction(venue.id, !venue.bookingWindowOpen))}
+                style={{ height: 36, borderRadius: 7, border: "1px solid #C7D1DA", background: "#fff", fontWeight: 600, fontSize: 12.5, padding: "0 14px", color: "#33475B" }}
+              >
+                {venue.bookingWindowOpen ? t.windowClosed : t.windowOpen}
+              </button>
+            )}
           </div>
         </div>
 
@@ -150,7 +163,7 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
             max={240}
             step={5}
             defaultValue={venue.slotDuration}
-            disabled={pending}
+            disabled={disabled}
             onBlur={(e) => {
               const minutes = Number(e.target.value);
               if (minutes !== venue.slotDuration) run(() => setVenueSlotDurationAction(venue.id, minutes));
@@ -177,28 +190,30 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
         </div>
 
         {/* Add / set a day */}
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-          <div>
-            <label style={labelS}>{t.date}</label>
-            <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} style={control} />
+        {!readOnly && (
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+            <div>
+              <label style={labelS}>{t.date}</label>
+              <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} style={control} />
+            </div>
+            <div>
+              <label style={labelS}>{t.openTime}</label>
+              <input type="time" value={newOpen} onChange={(e) => setNewOpen(e.target.value)} style={control} />
+            </div>
+            <div>
+              <label style={labelS}>{t.closeTime}</label>
+              <input type="time" value={newClose} onChange={(e) => setNewClose(e.target.value)} style={control} />
+            </div>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => addOrUpdateDay(newDate, newOpen, newClose)}
+              style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
+            >
+              {t.addHours}
+            </button>
           </div>
-          <div>
-            <label style={labelS}>{t.openTime}</label>
-            <input type="time" value={newOpen} onChange={(e) => setNewOpen(e.target.value)} style={control} />
-          </div>
-          <div>
-            <label style={labelS}>{t.closeTime}</label>
-            <input type="time" value={newClose} onChange={(e) => setNewClose(e.target.value)} style={control} />
-          </div>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => addOrUpdateDay(newDate, newOpen, newClose)}
-            style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
-          >
-            {t.addHours}
-          </button>
-        </div>
+        )}
 
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead style={{ background: "#F8FAFB" }}>
@@ -221,7 +236,7 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
                   <input
                     type="time"
                     defaultValue={d.openTime}
-                    disabled={pending}
+                    disabled={disabled}
                     onBlur={(e) => {
                       if (e.target.value !== d.openTime) addOrUpdateDay(d.dateIso, e.target.value, d.closeTime);
                     }}
@@ -232,7 +247,7 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
                   <input
                     type="time"
                     defaultValue={d.closeTime}
-                    disabled={pending}
+                    disabled={disabled}
                     onBlur={(e) => {
                       if (e.target.value !== d.closeTime) addOrUpdateDay(d.dateIso, d.openTime, e.target.value);
                     }}
@@ -247,7 +262,9 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
                   )}
                 </td>
                 <td style={{ ...td, textAlign: "right" }}>
-                  {d.active ? (
+                  {readOnly ? (
+                    <span style={{ color: "#9AA7B2" }}>—</span>
+                  ) : d.active ? (
                     <button
                       type="button"
                       disabled={pending}
@@ -279,32 +296,34 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
           <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{t.compounds}</h2>
           <p style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 14 }}>{t.compoundsNote}</p>
 
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-            <div>
-              <label style={labelS}>{t.department}</label>
-              <select value={newCompoundDept} onChange={(e) => setNewCompoundDept(e.target.value)} style={control}>
-                {DEPARTMENTS.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
+          {!readOnly && (
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              <div>
+                <label style={labelS}>{t.department}</label>
+                <select value={newCompoundDept} onChange={(e) => setNewCompoundDept(e.target.value)} style={control}>
+                  {DEPARTMENTS.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ flex: 1, minWidth: 140 }}>
+                <label style={labelS}>{t.labelField}</label>
+                <input value={newCompoundLabel} onChange={(e) => setNewCompoundLabel(e.target.value)} placeholder={t.compoundPh} style={{ ...control, width: "100%" }} />
+              </div>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  if (!newCompoundLabel.trim()) { setError(t.labelRequired); return; }
+                  run(() => addCompoundAction(venue.id, newCompoundDept, newCompoundLabel));
+                  setNewCompoundLabel("");
+                }}
+                style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
+              >
+                {t.add}
+              </button>
             </div>
-            <div style={{ flex: 1, minWidth: 140 }}>
-              <label style={labelS}>{t.labelField}</label>
-              <input value={newCompoundLabel} onChange={(e) => setNewCompoundLabel(e.target.value)} placeholder={t.compoundPh} style={{ ...control, width: "100%" }} />
-            </div>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                if (!newCompoundLabel.trim()) { setError(t.labelRequired); return; }
-                run(() => addCompoundAction(venue.id, newCompoundDept, newCompoundLabel));
-                setNewCompoundLabel("");
-              }}
-              style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
-            >
-              {t.add}
-            </button>
-          </div>
+          )}
 
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ background: "#F8FAFB" }}>
@@ -323,14 +342,18 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
                   <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{c.department}</td>
                   <td style={td}>{c.label}</td>
                   <td style={{ ...td, textAlign: "right" }}>
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => run(() => removeCompoundAction(venue.id, c.id))}
-                      style={{ background: "none", border: "none", color: "#B3261E", fontWeight: 600, fontSize: 12 }}
-                    >
-                      {t.remove}
-                    </button>
+                    {readOnly ? (
+                      <span style={{ color: "#9AA7B2" }}>—</span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => run(() => removeCompoundAction(venue.id, c.id))}
+                        style={{ background: "none", border: "none", color: "#B3261E", fontWeight: 600, fontSize: 12 }}
+                      >
+                        {t.remove}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -342,24 +365,26 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
           <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{t.gates}</h2>
           <p style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 14 }}>{t.gatesNote}</p>
 
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 140 }}>
-              <label style={labelS}>{t.labelField}</label>
-              <input value={newGateLabel} onChange={(e) => setNewGateLabel(e.target.value)} placeholder={t.gatePh} style={{ ...control, width: "100%" }} />
+          {!readOnly && (
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 140 }}>
+                <label style={labelS}>{t.labelField}</label>
+                <input value={newGateLabel} onChange={(e) => setNewGateLabel(e.target.value)} placeholder={t.gatePh} style={{ ...control, width: "100%" }} />
+              </div>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  if (!newGateLabel.trim()) { setError(t.labelRequired); return; }
+                  run(() => addGateAction(venue.id, newGateLabel));
+                  setNewGateLabel("");
+                }}
+                style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
+              >
+                {t.add}
+              </button>
             </div>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                if (!newGateLabel.trim()) { setError(t.labelRequired); return; }
-                run(() => addGateAction(venue.id, newGateLabel));
-                setNewGateLabel("");
-              }}
-              style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
-            >
-              {t.add}
-            </button>
-          </div>
+          )}
 
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ background: "#F8FAFB" }}>
@@ -376,14 +401,18 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
                 <tr key={g.id}>
                   <td style={td}>{g.label}</td>
                   <td style={{ ...td, textAlign: "right" }}>
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => run(() => removeGateAction(venue.id, g.id))}
-                      style={{ background: "none", border: "none", color: "#B3261E", fontWeight: 600, fontSize: 12 }}
-                    >
-                      {t.remove}
-                    </button>
+                    {readOnly ? (
+                      <span style={{ color: "#9AA7B2" }}>—</span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => run(() => removeGateAction(venue.id, g.id))}
+                        style={{ background: "none", border: "none", color: "#B3261E", fontWeight: 600, fontSize: 12 }}
+                      >
+                        {t.remove}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -423,7 +452,7 @@ export function VenueManagement({ t, venues }: { t: Dict; venues: ManagedVenue[]
                           <input
                             type="checkbox"
                             checked={on}
-                            disabled={pending}
+                            disabled={disabled}
                             onChange={(e) => run(() => setRouteAction(venue.id, c.id, g.id, e.target.checked))}
                           />
                         </td>

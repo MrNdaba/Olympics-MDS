@@ -22,7 +22,8 @@ export async function GET(
   // Authorization: owner (supplier) or venue-scoped VLM/Admin (spec §4).
   const allowed =
     (user.role === "supplier" && booking.createdById === user.id) ||
-    ((user.role === "vlm" || user.role === "admin") && canAccessVenue(user, booking.venueId));
+    ((user.role === "vlm" || user.role === "admin" || user.role === "viewer") &&
+      canAccessVenue(user, booking.venueId));
   if (!allowed) return new Response("Forbidden", { status: 403 });
 
   const lang = await getLang();

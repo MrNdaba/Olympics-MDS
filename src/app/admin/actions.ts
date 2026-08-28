@@ -25,6 +25,9 @@ export interface CreateUserInput {
   phone?: string;
   password: string;
   venueIds: string[];
+  /** Supplier-only: preselected default for the booking form's merchandise-type
+   *  dropdown (item #2). Ignored for every other role. */
+  preferredMerchandiseType?: string;
 }
 
 export async function createUserAction(input: CreateUserInput): Promise<Result> {
@@ -52,7 +55,10 @@ export async function createUserAction(input: CreateUserInput): Promise<Result> 
   if (existing) return { ok: false, error: "A user with this email already exists." };
 
   const passwordHash = await hashPassword(input.password);
-  const venueIds = input.role === "vlm" ? input.venueIds : [];
+  // Venue scoping applies to VLM and View Only accounts alike (item #3).
+  const venueIds = input.role === "vlm" || input.role === "viewer" ? input.venueIds : [];
+  const preferredMerchandiseType =
+    input.role === "supplier" ? (input.preferredMerchandiseType?.trim() || null) : null;
 
   await prisma.user.create({
     data: {
@@ -63,6 +69,7 @@ export async function createUserAction(input: CreateUserInput): Promise<Result> 
       phone: phone || null,
       passwordHash,
       mustChangePassword: true,
+      preferredMerchandiseType,
       venueAssignments: { create: venueIds.map((venueId) => ({ venueId })) },
     },
   });
@@ -78,6 +85,9 @@ export interface UpdateUserInput {
   otpChannel: "email";
   phone?: string;
   venueIds: string[];
+  /** Supplier-only: preselected default for the booking form's merchandise-type
+   *  dropdown (item #2). Ignored for every other role. */
+  preferredMerchandiseType?: string;
 }
 
 export async function updateUserAction(input: UpdateUserInput): Promise<Result> {
@@ -99,7 +109,9 @@ export async function updateUserAction(input: UpdateUserInput): Promise<Result> 
   const user = await prisma.user.findUnique({ where: { id: input.userId } });
   if (!user) return { ok: false, error: "Not found." };
 
-  const venueIds = input.role === "vlm" ? input.venueIds : [];
+  const venueIds = input.role === "vlm" || input.role === "viewer" ? input.venueIds : [];
+  const preferredMerchandiseType =
+    input.role === "supplier" ? (input.preferredMerchandiseType?.trim() || null) : null;
 
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
@@ -109,6 +121,7 @@ export async function updateUserAction(input: UpdateUserInput): Promise<Result> 
         role: input.role,
         otpChannel: input.otpChannel,
         phone: phone || null,
+        preferredMerchandiseType,
       },
     });
     // Reset venue scoping to the new selection (VLM only).

@@ -15,6 +15,7 @@ Password1234!
 | --- | --- | --- | --- |
 | **Administrator** | `admin@mds.dev` | `Password1234!` | All (cross-venue) |
 | **VLM** (Venue Logistics Manager) | `vlm.dar@mds.dev` | `Password1234!` | Dakar Arena (DAR) |
+| **View Only** | `viewer.dar@mds.dev` | `Password1234!` | Dakar Arena (DAR) |
 | **Supplier / Transporter** | `supplier@mds.dev` | `Password1234!` | — |
 
 ## Access per role
@@ -24,6 +25,11 @@ Password1234!
 - **VLM** — validates and monitors bookings **only for assigned venue(s)**. Server-side venue
   scoping is enforced on every query and mutation.
   - Landing: `/vlm` (bookings), `/vlm/dashboard` (venue load).
+- **View Only** — same screens as a VLM (bookings, dashboard, venue management), same venue
+  scoping, but strictly read-only: validate/reject/amend/cancel/reinstate and every venue-management
+  edit are hidden client-side and rejected server-side (the underlying actions require the `vlm` or
+  `admin` role explicitly).
+  - Landing: `/vlm` (bookings, read-only).
 - **Supplier / Transporter** — creates, amends and cancels their own delivery/collection bookings.
   - Landing: `/supplier` (new booking + my bookings).
 

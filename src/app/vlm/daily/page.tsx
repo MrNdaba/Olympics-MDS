@@ -21,7 +21,7 @@ export default async function DailyListPage({
     q?: string;
   }>;
 }) {
-  const user = await requireRole("vlm", "admin");
+  const user = await requireRole("vlm", "admin", "viewer");
   const { lang, t } = await getTranslations();
   const sp = await searchParams;
 

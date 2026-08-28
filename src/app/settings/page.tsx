@@ -17,7 +17,7 @@ export default async function SettingsPage() {
   const nav: NavItem[] =
     user.role === "admin"
       ? adminNav("dashboard", t)
-      : user.role === "vlm"
+      : user.role === "vlm" || user.role === "viewer"
         ? vlmNav("bookings", t)
         : [
             { href: "/supplier", label: t.navNew, active: false },

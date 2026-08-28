@@ -45,7 +45,18 @@ const mono: React.CSSProperties = { fontFamily: "var(--font-mono)", fontSize: 11
 
 type Dialog = { id: string; kind: "reject" | "cancel" | "reinstate" } | null;
 
-export function VlmBookingsTable({ t, rows }: { t: Dict; rows: VlmRow[] }) {
+export function VlmBookingsTable({
+  t,
+  rows,
+  readOnly = false,
+}: {
+  t: Dict;
+  rows: VlmRow[];
+  /** View Only accounts (item #3): render the same table, but every
+   *  validate/reject/amend/cancel/reinstate control is hidden — the read
+   *  path (status, details, PDF link once Confirmed) stays intact. */
+  readOnly?: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -148,21 +159,23 @@ export function VlmBookingsTable({ t, rows }: { t: Dict; rows: VlmRow[] }) {
                   <td style={td}><StatusChip status={r.status} t={t} reason={r.cancelReason} /></td>
                   <td style={td}>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      {r.canValidate && solidBtn("var(--st-confirmed)", `✓ ${t.validate}`, () => run(() => validateBookingAction(r.id)))}
-                      {r.canValidate && outlineBtn("#B3261E", `✕ ${t.reject}`, () => { setDialog({ id: r.id, kind: "reject" }); setReason(""); setError(null); })}
-                      {r.canCancel && (
+                      {!readOnly && r.canValidate && solidBtn("var(--st-confirmed)", `✓ ${t.validate}`, () => run(() => validateBookingAction(r.id)))}
+                      {!readOnly && r.canValidate && outlineBtn("#B3261E", `✕ ${t.reject}`, () => { setDialog({ id: r.id, kind: "reject" }); setReason(""); setError(null); })}
+                      {!readOnly && r.canCancel && (
                         <a href={`/bookings/${r.id}/edit`} style={{ color: "var(--blue)", fontWeight: 600, fontSize: 12 }}>
                           {t.amend}
                         </a>
                       )}
-                      {r.canCancel && !r.canValidate && linkBtn("#B3261E", t.cancel, () => { setDialog({ id: r.id, kind: "cancel" }); setReason(""); setError(null); })}
+                      {!readOnly && r.canCancel && !r.canValidate && linkBtn("#B3261E", t.cancel, () => { setDialog({ id: r.id, kind: "cancel" }); setReason(""); setError(null); })}
                       {r.status === "Confirmed" && (
                         <a href={`/bookings/${r.id}/confirmation`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--st-confirmed-text)", fontWeight: 600, fontSize: 12 }}>
                           ⎙ PDF
                         </a>
                       )}
-                      {r.canReinstate && linkBtn("var(--blue)", t.reinstate, () => { setDialog({ id: r.id, kind: "reinstate" }); setReason(""); setError(null); })}
-                      {!r.canValidate && !r.canCancel && !r.canReinstate && <span style={{ color: "#9AA7B2" }}>—</span>}
+                      {!readOnly && r.canReinstate && linkBtn("var(--blue)", t.reinstate, () => { setDialog({ id: r.id, kind: "reinstate" }); setReason(""); setError(null); })}
+                      {(readOnly || (!r.canValidate && !r.canCancel && !r.canReinstate)) && (
+                        <span style={{ color: "#9AA7B2" }}>—</span>
+                      )}
                     </div>
                   </td>
                 </tr>

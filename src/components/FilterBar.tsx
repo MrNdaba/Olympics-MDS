@@ -22,14 +22,22 @@ export interface FilterVenue {
   siteCode: string;
 }
 
+/** Status/Venue/Type filter + reference search bar, shared by the VLM
+ *  bookings list and the supplier "My bookings" view (item #1) so both stay
+ *  visually and behaviourally identical. `pendingCount` is VLM-only — the
+ *  badge is omitted wherever it isn't passed. */
 export function FilterBar({
   t,
   pendingCount,
   venues = [],
+  basePath = "/vlm",
+  searchPlaceholder,
 }: {
   t: Dict;
-  pendingCount: number;
+  pendingCount?: number;
   venues?: FilterVenue[];
+  basePath?: string;
+  searchPlaceholder?: string;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -39,7 +47,7 @@ export function FilterBar({
     const next = new URLSearchParams(params.toString());
     if (value) next.set(key, value);
     else next.delete(key);
-    startTransition(() => router.push(`/vlm?${next.toString()}`));
+    startTransition(() => router.push(`${basePath}?${next.toString()}`));
   }
 
   return (
@@ -59,7 +67,7 @@ export function FilterBar({
       <input
         defaultValue={params.get("q") ?? ""}
         onChange={(e) => update("q", e.target.value)}
-        placeholder={t.fSearch}
+        placeholder={searchPlaceholder ?? t.fSearch}
         style={{ ...chip, flex: 1.3, minWidth: 180 }}
       />
       {venues.length > 1 && (
@@ -84,26 +92,28 @@ export function FilterBar({
         <option value="delivery">{t.delivery}</option>
         <option value="collection">{t.collection}</option>
       </select>
-      <DateRangeFilter t={t} basePath="/vlm" />
-      <SortControl t={t} basePath="/vlm" />
-      <span
-        style={{
-          marginLeft: "auto",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "5px 11px",
-          borderRadius: 20,
-          background: "#FCF3E1",
-          border: "1px solid #F2DDAE",
-          color: "#9A6400",
-          fontSize: 11.5,
-          fontWeight: 600,
-        }}
-      >
-        <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#E08A00" }} />
-        {pendingCount} {t.pendingCount}
-      </span>
+      <DateRangeFilter t={t} basePath={basePath} />
+      <SortControl t={t} basePath={basePath} />
+      {pendingCount !== undefined && (
+        <span
+          style={{
+            marginLeft: "auto",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "5px 11px",
+            borderRadius: 20,
+            background: "#FCF3E1",
+            border: "1px solid #F2DDAE",
+            color: "#9A6400",
+            fontSize: 11.5,
+            fontWeight: 600,
+          }}
+        >
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#E08A00" }} />
+          {pendingCount} {t.pendingCount}
+        </span>
+      )}
     </div>
   );
 }

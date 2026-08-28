@@ -27,6 +27,8 @@ export interface UserRow {
   otpChannel: string;
   venues: string[];
   venueIds: string[];
+  /** Supplier-only booking-form default (item #2); empty string = none set. */
+  preferredMerchandiseType: string;
   /** ISO timestamp — sort key for the Newest/Oldest toggle (item #10). */
   createdAt: string;
 }
@@ -51,11 +53,14 @@ export function UsersAdmin({
   t,
   users,
   venues,
+  merchTypes,
   currentAdminId,
 }: {
   t: Dict;
   users: UserRow[];
   venues: VenueOpt[];
+  /** Active merchandise-type labels, for the supplier default-preselect field (item #2). */
+  merchTypes: string[];
   currentAdminId: string;
 }) {
   const router = useRouter();
@@ -78,6 +83,7 @@ export function UsersAdmin({
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("TempPass1234!");
   const [venueIds, setVenueIds] = useState<string[]>([]);
+  const [preferredMerchandiseType, setPreferredMerchandiseType] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
@@ -96,6 +102,7 @@ export function UsersAdmin({
   const [eRole, setERole] = useState<CreateUserInput["role"]>("supplier");
   const [ePhone, setEPhone] = useState("");
   const [eVenueIds, setEVenueIds] = useState<string[]>([]);
+  const [ePreferredMerchandiseType, setEPreferredMerchandiseType] = useState("");
   const [eError, setEError] = useState<string | null>(null);
 
   function toggleVenue(id: string) {
@@ -112,6 +119,7 @@ export function UsersAdmin({
     setERole(u.role as CreateUserInput["role"]);
     setEPhone(u.phone);
     setEVenueIds(u.venueIds);
+    setEPreferredMerchandiseType(u.preferredMerchandiseType);
     setEError(null);
   }
 
@@ -126,6 +134,7 @@ export function UsersAdmin({
         otpChannel: "email",
         phone: ePhone,
         venueIds: eVenueIds,
+        preferredMerchandiseType: ePreferredMerchandiseType,
       });
       if (res.ok) {
         setEditing(null);
@@ -141,13 +150,23 @@ export function UsersAdmin({
     setError(null);
     setOk(null);
     startTransition(async () => {
-      const res = await createUserAction({ email, name, role, otpChannel: "email", phone, password, venueIds });
+      const res = await createUserAction({
+        email,
+        name,
+        role,
+        otpChannel: "email",
+        phone,
+        password,
+        venueIds,
+        preferredMerchandiseType,
+      });
       if (res.ok) {
         setOk(email);
         setEmail("");
         setName("");
         setPhone("");
         setVenueIds([]);
+        setPreferredMerchandiseType("");
         router.refresh();
       } else {
         setError(res.error ?? "Error");
@@ -175,7 +194,7 @@ export function UsersAdmin({
   }
 
   const roleLabel = (r: string) =>
-    r === "admin" ? t.roleAdmin : r === "vlm" ? t.roleVlm : t.roleSupplierShort;
+    r === "admin" ? t.roleAdmin : r === "vlm" ? t.roleVlm : r === "viewer" ? t.roleViewer : t.roleSupplierShort;
   const statusLabel = (s: string) =>
     s === "active" ? t.statusActive : s === "locked" ? t.statusLocked : t.statusDeactivated;
 
@@ -198,10 +217,23 @@ export function UsersAdmin({
             <select value={role} onChange={(e) => setRole(e.target.value as CreateUserInput["role"])} style={control}>
               <option value="supplier">{t.roleSupplierShort}</option>
               <option value="vlm">{t.roleVlm}</option>
+              <option value="viewer">{t.roleViewer}</option>
               <option value="admin">{t.roleAdmin}</option>
             </select>
           </div>
-          {role === "vlm" && (
+          {role === "supplier" && (
+            <div>
+              <label style={labelS}>{t.defaultMerchType} <span style={{ color: "#9AA7B2" }}>{t.optional}</span></label>
+              <select value={preferredMerchandiseType} onChange={(e) => setPreferredMerchandiseType(e.target.value)} style={control}>
+                <option value="">—</option>
+                {merchTypes.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              <p style={{ fontSize: 10.5, color: "#5A6B7C", marginTop: 4 }}>{t.defaultMerchTypeNote}</p>
+            </div>
+          )}
+          {(role === "vlm" || role === "viewer") && (
             <div>
               <label style={labelS}>{t.assignedVenues}</label>
               <div style={{ maxHeight: 150, overflowY: "auto", border: "1px solid #E3E9EF", borderRadius: 7, padding: 8 }}>
@@ -295,10 +327,23 @@ export function UsersAdmin({
                 <select value={eRole} onChange={(e) => setERole(e.target.value as CreateUserInput["role"])} style={control}>
                   <option value="supplier">{t.roleSupplierShort}</option>
                   <option value="vlm">{t.roleVlm}</option>
+                  <option value="viewer">{t.roleViewer}</option>
                   <option value="admin">{t.roleAdmin}</option>
                 </select>
               </div>
-              {eRole === "vlm" && (
+              {eRole === "supplier" && (
+                <div>
+                  <label style={labelS}>{t.defaultMerchType} <span style={{ color: "#9AA7B2" }}>{t.optional}</span></label>
+                  <select value={ePreferredMerchandiseType} onChange={(e) => setEPreferredMerchandiseType(e.target.value)} style={control}>
+                    <option value="">—</option>
+                    {merchTypes.map((v) => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                  <p style={{ fontSize: 10.5, color: "#5A6B7C", marginTop: 4 }}>{t.defaultMerchTypeNote}</p>
+                </div>
+              )}
+              {(eRole === "vlm" || eRole === "viewer") && (
                 <div>
                   <label style={labelS}>{t.assignedVenues}</label>
                   <div style={{ maxHeight: 150, overflowY: "auto", border: "1px solid #E3E9EF", borderRadius: 7, padding: 8 }}>

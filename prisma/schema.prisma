@@ -18,12 +18,17 @@ model User {
   id                 String              @id @default(cuid())
   email              String              @unique
   name               String
-  role               String // 'supplier' | 'vlm' | 'admin'  (Role)
+  role               String // 'supplier' | 'vlm' | 'admin' | 'viewer'  (Role)
   phone              String?
   otpChannel         String              @default("email") // 'email' | 'sms'
   passwordHash       String
   status             String              @default("active") // 'active' | 'locked' | 'deactivated'
   mustChangePassword Boolean             @default(true)
+  // Supplier-only: Admin-preselected default for the booking form's
+  // merchandise-type dropdown (item #2). Free-text against MasterData
+  // labels, not a relation — stays editable even if the label is later
+  // renamed/deactivated, and the supplier can always override it.
+  preferredMerchandiseType String?
   failedAttempts     Int                 @default(0)
   createdAt          DateTime            @default(now())
   venueAssignments   VenueAssignment[]

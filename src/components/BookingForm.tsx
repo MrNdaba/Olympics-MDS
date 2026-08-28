@@ -70,6 +70,7 @@ export function BookingForm({
   merchTypes,
   packTypes,
   defaultDate,
+  preferredMerchandiseType,
 }: {
   t: Dict;
   lang: Lang;
@@ -80,9 +81,20 @@ export function BookingForm({
   merchTypes: string[];
   packTypes: string[];
   defaultDate: string;
+  /** Admin-preselected default for this supplier (item #2) — only ever a
+   *  starting value; the dropdown stays fully editable. */
+  preferredMerchandiseType?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+
+  // Admin preselection wins over the plain first-option default, but only
+  // when it still names an active merchandise type (item #2) — falls back
+  // silently if the label was since deactivated/renamed.
+  const defaultMerchType =
+    preferredMerchandiseType && merchTypes.includes(preferredMerchandiseType)
+      ? preferredMerchandiseType
+      : (merchTypes[0] ?? "");
 
   const [type, setType] = useState<"delivery" | "collection">("delivery");
   const [transporterName, setTransporterName] = useState("");
@@ -91,7 +103,7 @@ export function BookingForm({
   // freely edit it for this booking; it's just a starting value, not a lock.
   const [supplierContact, setSupplierContact] = useState(supplierPhone ?? "");
   const [vehicleType, setVehicleType] = useState(vehicleTypes[0] ?? "");
-  const [merchandiseType, setMerchandiseType] = useState(merchTypes[0] ?? "");
+  const [merchandiseType, setMerchandiseType] = useState(defaultMerchType);
   const [packagingType, setPackagingType] = useState("");
   const [quantity, setQuantity] = useState("");
   const [weightKg, setWeightKg] = useState("");
@@ -226,7 +238,7 @@ export function BookingForm({
         setTransporterContact("");
         setSupplierContact(supplierPhone ?? "");
         setVehicleType(vehicleTypes[0] ?? "");
-        setMerchandiseType(merchTypes[0] ?? "");
+        setMerchandiseType(defaultMerchType);
         setPackagingType("");
         setQuantity("");
         setWeightKg("");
@@ -320,6 +332,9 @@ export function BookingForm({
                 <option key={v} value={v}>{translateMasterData(v, lang)}</option>
               ))}
             </select>
+            {preferredMerchandiseType && merchTypes.includes(preferredMerchandiseType) && (
+              <span style={{ fontSize: 10.5, color: "#00753A" }}>{t.autoSelected} · {t.preselectedByAdmin}</span>
+            )}
           </div>
           <div>
             <label style={label}>

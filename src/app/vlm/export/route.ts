@@ -11,7 +11,7 @@ import { buildBookingListPdf, type BookingListRow } from "@/lib/pdf";
 // keeps "booking type" as a prominent labelled column.
 export async function GET(request: Request) {
   const user = await getSessionUser();
-  if (!user || (user.role !== "vlm" && user.role !== "admin")) {
+  if (!user || (user.role !== "vlm" && user.role !== "admin" && user.role !== "viewer")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

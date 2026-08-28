@@ -18,7 +18,7 @@ export default async function VlmDashboard({
 }: {
   searchParams: Promise<{ date?: string; from?: string; to?: string; venueId?: string }>;
 }) {
-  const user = await requireRole("vlm", "admin");
+  const user = await requireRole("vlm", "admin", "viewer");
   const { lang, t } = await getTranslations();
   const sp = await searchParams;
 

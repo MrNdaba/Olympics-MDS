@@ -14,7 +14,10 @@ export default async function VlmPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string; type?: string; venueId?: string; from?: string; to?: string; sort?: string }>;
 }) {
-  const user = await requireRole("vlm", "admin");
+  // View Only accounts see this list read-only (item #3) — allowed here, but
+  // deliberately excluded from vlm/actions.ts so every mutation is blocked
+  // server-side regardless of what the client renders.
+  const user = await requireRole("vlm", "admin", "viewer");
   const { lang, t } = await getTranslations();
   const sp = await searchParams;
 
@@ -148,7 +151,7 @@ export default async function VlmPage({
           </div>
         </div>
         <FilterBar t={t} pendingCount={pendingCount} venues={scopedVenues} />
-        <VlmBookingsTable t={t} rows={rows} />
+        <VlmBookingsTable t={t} rows={rows} readOnly={user.role === "viewer"} />
       </main>
     </div>
   );

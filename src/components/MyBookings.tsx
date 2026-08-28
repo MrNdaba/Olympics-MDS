@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Dict } from "@/lib/i18n";
 import { StatusChip, TypeChip } from "./Chips";
-import { SortControl } from "./SortControl";
 import { ModalCloseButton } from "./ModalCloseButton";
 import { cancelMyBooking } from "@/app/supplier/actions";
 
@@ -70,7 +69,6 @@ export function MyBookings({ t, rows }: { t: Dict; rows: BookingRow[] }) {
     <div style={{ background: "#fff", border: "1px solid var(--border-card)", borderRadius: 10, overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px" }}>
         <h2 style={{ fontWeight: 700, fontSize: 15 }}>{t.myBookings}</h2>
-        <SortControl t={t} basePath="/supplier/bookings" />
       </div>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 820 }}>

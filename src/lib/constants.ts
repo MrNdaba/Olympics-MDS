@@ -2,7 +2,11 @@
 // Every value persisted in a "String" column that represents a closed set is
 // declared here so the DB stays enum-free while TypeScript enforces the set.
 
-export const ROLES = ["supplier", "vlm", "admin"] as const;
+// "viewer" = View Only staff account (item #3): sees the same VLM-scoped
+// screens as a VLM (bookings, dashboard, venue management) but every
+// create/update/delete action is blocked server-side — see requireRole calls
+// in src/app/vlm/**/actions.ts, which intentionally omit "viewer".
+export const ROLES = ["supplier", "vlm", "admin", "viewer"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const BOOKING_TYPES = ["delivery", "collection"] as const;

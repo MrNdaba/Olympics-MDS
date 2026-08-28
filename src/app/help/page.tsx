@@ -13,13 +13,19 @@ export default async function HelpPage() {
   const nav: NavItem[] = (
     user.role === "admin"
       ? adminNav("users", t)
-      : user.role === "vlm"
+      : user.role === "vlm" || user.role === "viewer"
         ? vlmNav("bookings", t)
         : supplierNav("new", t)
   ).map((n) => ({ ...n, active: false }));
 
   const roleGuide =
-    user.role === "admin" ? t.roleAdmin : user.role === "vlm" ? t.roleVlm : t.roleSupplierShort;
+    user.role === "admin"
+      ? t.roleAdmin
+      : user.role === "vlm"
+        ? t.roleVlm
+        : user.role === "viewer"
+          ? t.roleViewer
+          : t.roleSupplierShort;
 
   return (
     <div style={{ minHeight: "100vh" }}>

@@ -9,7 +9,7 @@ export default async function AdminUsersPage() {
   const admin = await requireRole("admin");
   const { lang, t } = await getTranslations();
 
-  const [users, venues] = await Promise.all([
+  const [users, venues, merchTypeRows] = await Promise.all([
     prisma.user.findMany({
       orderBy: [{ role: "asc" }, { name: "asc" }],
       include: { venueAssignments: { include: { venue: true } } },
@@ -19,7 +19,15 @@ export default async function AdminUsersPage() {
       orderBy: { name: "asc" },
       select: { id: true, name: true, siteCode: true },
     }),
+    // Same active merchandise-type list the supplier's own booking form uses
+    // (item #2), so the admin preselects from a value the dropdown actually offers.
+    prisma.masterData.findMany({
+      where: { category: "merchandiseType", active: true },
+      orderBy: { label: "asc" },
+      select: { label: true },
+    }),
   ]);
+  const merchTypes = merchTypeRows.map((r) => r.label);
 
   const rows: UserRow[] = users.map((u) => ({
     id: u.id,
@@ -31,6 +39,7 @@ export default async function AdminUsersPage() {
     otpChannel: u.otpChannel,
     venues: u.venueAssignments.map((a) => a.venue.siteCode),
     venueIds: u.venueAssignments.map((a) => a.venueId),
+    preferredMerchandiseType: u.preferredMerchandiseType ?? "",
     createdAt: u.createdAt.toISOString(),
   }));
 
@@ -44,7 +53,7 @@ export default async function AdminUsersPage() {
           <h1 style={{ fontSize: 18, fontWeight: 700 }}>{t.usersTitle}</h1>
           <p style={{ fontSize: 11.5, color: "var(--text-secondary)" }}>{t.usersSub}</p>
         </div>
-        <UsersAdmin t={t} users={rows} venues={venues} currentAdminId={admin.id} />
+        <UsersAdmin t={t} users={rows} venues={venues} merchTypes={merchTypes} currentAdminId={admin.id} />
       </main>
     </div>
   );

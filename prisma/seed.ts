@@ -258,7 +258,27 @@ async function main() {
     },
   });
   const supplier = await prisma.user.create({
-    data: { email: "supplier@mds.dev", name: "Fournisseur A", role: "supplier", passwordHash, mustChangePassword: false },
+    data: {
+      email: "supplier@mds.dev",
+      name: "Fournisseur A",
+      role: "supplier",
+      passwordHash,
+      mustChangePassword: false,
+      // Demo of the admin-preselected merchandise-type default (item #2).
+      preferredMerchandiseType: "Catering (F&B)",
+    },
+  });
+  // View Only demo account (item #3): same venue scoping as the VLM demo
+  // user, but every mutating action stays server-blocked regardless of role.
+  const viewer = await prisma.user.create({
+    data: {
+      email: "viewer.dar@mds.dev",
+      name: "Observateur Dakar Arena",
+      role: "viewer",
+      passwordHash,
+      mustChangePassword: false,
+      venueAssignments: { create: [{ venueId: venueByCode["DAR"] }] },
+    },
   });
 
   // Demo bookings at Dakar Arena (bump-in period → 08:00–18:00 slots).
@@ -307,10 +327,11 @@ async function main() {
   await prisma.referenceSequence.create({ data: { id: 1, value: refN } });
 
   console.log(
-    `Seeded ${VENUES.length} venues, master data, users (admin@/vlm.dar@/supplier@mds.dev · Password1234!), and ${demo.length} demo bookings.`,
+    `Seeded ${VENUES.length} venues, master data, users (admin@/vlm.dar@/viewer.dar@/supplier@mds.dev · Password1234!), and ${demo.length} demo bookings.`,
   );
   void admin;
   void vlm;
+  void viewer;
 }
 
 main()

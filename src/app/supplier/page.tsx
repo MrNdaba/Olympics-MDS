@@ -25,7 +25,10 @@ export default async function SupplierPage() {
     masterList(MASTER_DATA_CATEGORIES[0]),
     masterList(MASTER_DATA_CATEGORIES[1]),
     masterList(MASTER_DATA_CATEGORIES[2]),
-    prisma.user.findUnique({ where: { id: user.id }, select: { phone: true } }),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { phone: true, preferredMerchandiseType: true },
+    }),
   ]);
 
   const nav: NavItem[] = supplierNav("new", t);
@@ -44,6 +47,7 @@ export default async function SupplierPage() {
           merchTypes={merchTypes}
           packTypes={packTypes}
           defaultDate={dayIso(new Date())}
+          preferredMerchandiseType={profile?.preferredMerchandiseType ?? undefined}
         />
       </main>
     </div>

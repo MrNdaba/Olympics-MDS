@@ -94,10 +94,11 @@ export async function requireRole(...roles: Role[]): Promise<SessionUser> {
   return user;
 }
 
-/** Server-side venue-scope guard for VLMs (spec §4). Admins see all venues. */
+/** Server-side venue-scope guard for VLMs (spec §4). Admins see all venues.
+ *  View Only accounts are scoped exactly like VLMs (item #3). */
 export function canAccessVenue(user: SessionUser, venueId: string): boolean {
   if (user.role === "admin") return true;
-  if (user.role === "vlm") return user.venueIds.includes(venueId);
+  if (user.role === "vlm" || user.role === "viewer") return user.venueIds.includes(venueId);
   return false;
 }
 

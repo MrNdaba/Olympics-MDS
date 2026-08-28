@@ -7,7 +7,7 @@ import { adminNav, vlmNav } from "@/lib/nav";
 import { VenueManagement, type ManagedVenue } from "@/components/vlm/VenueManagement";
 
 export default async function VlmVenuePage() {
-  const user = await requireRole("vlm", "admin");
+  const user = await requireRole("vlm", "admin", "viewer");
   const { lang, t } = await getTranslations();
 
   const managed = await getManagedVenues(user);
@@ -50,7 +50,7 @@ export default async function VlmVenuePage() {
           <h1 style={{ fontSize: 18, fontWeight: 700 }}>{t.venueMgmtTitle}</h1>
           <p style={{ fontSize: 11.5, color: "var(--text-secondary)" }}>{t.venueMgmtSub}</p>
         </div>
-        <VenueManagement t={t} venues={venues} />
+        <VenueManagement t={t} venues={venues} readOnly={user.role === "viewer"} />
       </main>
     </div>
   );
