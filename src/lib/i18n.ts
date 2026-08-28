@@ -158,6 +158,13 @@ export const dict = {
     addHours: "Définir les horaires",
     noOperatingDays: "Aucun horaire défini.",
     closedLabel: "Fermé",
+    colBreaks: "Pauses",
+    dateRequired: "La date est requise.",
+    // Day editor — select one date to configure its hours + breaks together
+    dayEditorTitle: "Configuration du jour",
+    dayEditorNote: "Choisissez une date pour définir ses horaires d'ouverture et ses pauses.",
+    selectDayToManage: "Choisissez une date ci-dessus, ou cliquez sur « Modifier » dans le tableau.",
+    dayNotConfigured: "Aucun horaire défini pour cette date.",
     // Break periods — non-bookable windows within an open day
     breakPeriods: "Pauses (créneaux non réservables)",
     breakPeriodsNote:
@@ -168,6 +175,7 @@ export const dict = {
     breakLabelPh: "Ex. Pause déjeuner, ronde de sécurité…",
     addBreak: "Ajouter la pause",
     noBreaks: "Aucune pause définie.",
+    breaksNeedOpenDay: "Définissez les horaires de ce jour pour pouvoir y ajouter des pauses.",
     legBreak: "Pause",
     onBreakBadge: "Pause",
     // Compound & gate maintenance (§8, §15.5)
@@ -424,6 +432,13 @@ export const dict = {
     addHours: "Set hours",
     noOperatingDays: "No operating hours defined.",
     closedLabel: "Closed",
+    colBreaks: "Breaks",
+    dateRequired: "Date is required.",
+    // Day editor — select one date to configure its hours + breaks together
+    dayEditorTitle: "Day configuration",
+    dayEditorNote: "Pick a date to set its operating hours and break periods.",
+    selectDayToManage: "Pick a date above, or click \"Edit\" in the table.",
+    dayNotConfigured: "No hours configured for this date.",
     // Break periods — non-bookable windows within an open day
     breakPeriods: "Break periods (non-bookable slots)",
     breakPeriodsNote:
@@ -434,6 +449,7 @@ export const dict = {
     breakLabelPh: "e.g. Lunch break, security sweep…",
     addBreak: "Add break",
     noBreaks: "No break periods defined.",
+    breaksNeedOpenDay: "Set this day's hours to add break periods.",
     legBreak: "Break",
     onBreakBadge: "Break",
     // Compound & gate maintenance (§8, §15.5)

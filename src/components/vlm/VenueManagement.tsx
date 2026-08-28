@@ -73,20 +73,37 @@ export function VenueManagement({
   const [selectedId, setSelectedId] = useState(venues[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
 
-  const [newDate, setNewDate] = useState("");
-  const [newOpen, setNewOpen] = useState("08:00");
-  const [newClose, setNewClose] = useState("18:00");
-
   const [newCompoundDept, setNewCompoundDept] = useState<string>(DEPARTMENTS[0]);
   const [newCompoundLabel, setNewCompoundLabel] = useState("");
   const [newGateLabel, setNewGateLabel] = useState("");
 
-  const [newBreakDate, setNewBreakDate] = useState("");
+  // Day editor (Operating hours rework): pick one date, then configure that
+  // day's hours and break periods together in a single focused panel,
+  // instead of editing hours inline per-row and breaks in a separate card.
+  const [selectedDayIso, setSelectedDayIso] = useState("");
+  const [dayOpenTime, setDayOpenTime] = useState("08:00");
+  const [dayCloseTime, setDayCloseTime] = useState("18:00");
   const [newBreakStart, setNewBreakStart] = useState("12:00");
   const [newBreakEnd, setNewBreakEnd] = useState("13:00");
   const [newBreakLabel, setNewBreakLabel] = useState("");
 
   const venue = useMemo(() => venues.find((v) => v.id === selectedId), [venues, selectedId]);
+
+  const selectedDay = useMemo(
+    () => venue?.days.find((d) => d.dateIso === selectedDayIso),
+    [venue, selectedDayIso],
+  );
+
+  // Select a date in the day editor, seeding the hours inputs from its
+  // existing record (or sane defaults for a brand-new date). Driven directly
+  // from the triggering event handlers (table "Edit", date picker, venue
+  // switch) rather than an effect, so there's no state-from-state cascade.
+  function selectDay(dateIso: string) {
+    const day = venue?.days.find((d) => d.dateIso === dateIso);
+    setSelectedDayIso(dateIso);
+    setDayOpenTime(day?.openTime ?? "08:00");
+    setDayCloseTime(day?.closeTime ?? "18:00");
+  }
 
   // Newest ⇄ Oldest sort for the operating-days schedule (item #10) — sorts
   // by the scheduled date itself, which is the meaningful order for a
@@ -104,15 +121,19 @@ export function VenueManagement({
     [venue],
   );
 
-  // Days currently open — only these can host a new break — and the venue's
-  // breaks sorted chronologically for the table below.
-  const openDays = useMemo(() => (venue?.days ?? []).filter((d) => d.active), [venue]);
-  const sortedBreaks = useMemo(
+  // Break count per day, for the Operating hours table's "Breaks" column, and
+  // the selected day's own breaks, chronological, for the day editor panel.
+  const breaksCountByDate = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const b of venue?.breaks ?? []) counts.set(b.dateIso, (counts.get(b.dateIso) ?? 0) + 1);
+    return counts;
+  }, [venue]);
+  const dayBreaks = useMemo(
     () =>
-      [...(venue?.breaks ?? [])].sort((a, b) =>
-        `${a.dateIso}${a.startTime}`.localeCompare(`${b.dateIso}${b.startTime}`),
-      ),
-    [venue],
+      (venue?.breaks ?? [])
+        .filter((b) => b.dateIso === selectedDayIso)
+        .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [venue, selectedDayIso],
   );
 
   if (!venue) {
@@ -130,7 +151,7 @@ export function VenueManagement({
 
   function addOrUpdateDay(dateIso: string, open: string, close: string) {
     if (!dateIso) {
-      setError("Date is required.");
+      setError(t.dateRequired);
       return;
     }
     run(() => setOperatingDayAction(venue!.id, dateIso, open, close));
@@ -141,7 +162,16 @@ export function VenueManagement({
       {venues.length > 1 && (
         <div style={{ ...card, display: "flex", alignItems: "center", gap: 12 }}>
           <label style={{ ...labelS, marginBottom: 0 }}>{t.venue}</label>
-          <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} style={{ ...control, minWidth: 240 }}>
+          <select
+            value={selectedId}
+            onChange={(e) => {
+              // Switching venue drops any in-progress day selection — it
+              // belonged to the previous venue's schedule.
+              setSelectedId(e.target.value);
+              selectDay("");
+            }}
+            style={{ ...control, minWidth: 240 }}
+          >
             {venues.map((v) => (
               <option key={v.id} value={v.id}>{v.name} · {v.siteCode}</option>
             ))}
@@ -201,7 +231,7 @@ export function VenueManagement({
         </div>
       </div>
 
-      {/* Operating hours */}
+      {/* Operating hours — overview table; click "Edit" to open the day editor below */}
       <div style={card}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
           <div>
@@ -217,32 +247,6 @@ export function VenueManagement({
           </label>
         </div>
 
-        {/* Add / set a day */}
-        {!readOnly && (
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-            <div>
-              <label style={labelS}>{t.date}</label>
-              <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} style={control} />
-            </div>
-            <div>
-              <label style={labelS}>{t.openTime}</label>
-              <input type="time" value={newOpen} onChange={(e) => setNewOpen(e.target.value)} style={control} />
-            </div>
-            <div>
-              <label style={labelS}>{t.closeTime}</label>
-              <input type="time" value={newClose} onChange={(e) => setNewClose(e.target.value)} style={control} />
-            </div>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => addOrUpdateDay(newDate, newOpen, newClose)}
-              style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
-            >
-              {t.addHours}
-            </button>
-          </div>
-        )}
-
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead style={{ background: "#F8FAFB" }}>
             <tr>
@@ -250,38 +254,25 @@ export function VenueManagement({
               <th style={th}>{t.openTime}</th>
               <th style={th}>{t.closeTime}</th>
               <th style={th}>{t.colStatus}</th>
+              <th style={th}>{t.colBreaks}</th>
               <th style={{ ...th, textAlign: "right" }}>{t.colActions}</th>
             </tr>
           </thead>
           <tbody>
             {sortedDays.length === 0 && (
-              <tr><td style={{ ...td, color: "#9AA7B2" }} colSpan={5}>{t.noOperatingDays}</td></tr>
+              <tr><td style={{ ...td, color: "#9AA7B2" }} colSpan={6}>{t.noOperatingDays}</td></tr>
             )}
             {sortedDays.map((d) => (
-              <tr key={d.dateIso} style={{ opacity: d.active ? 1 : 0.55 }}>
+              <tr
+                key={d.dateIso}
+                style={{
+                  opacity: d.active ? 1 : 0.55,
+                  background: d.dateIso === selectedDayIso ? "var(--blue-tint-bg)" : undefined,
+                }}
+              >
                 <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{d.dateDisplay}</td>
-                <td style={td}>
-                  <input
-                    type="time"
-                    defaultValue={d.openTime}
-                    disabled={disabled}
-                    onBlur={(e) => {
-                      if (e.target.value !== d.openTime) addOrUpdateDay(d.dateIso, e.target.value, d.closeTime);
-                    }}
-                    style={{ ...control, width: 110, height: 30 }}
-                  />
-                </td>
-                <td style={td}>
-                  <input
-                    type="time"
-                    defaultValue={d.closeTime}
-                    disabled={disabled}
-                    onBlur={(e) => {
-                      if (e.target.value !== d.closeTime) addOrUpdateDay(d.dateIso, d.openTime, e.target.value);
-                    }}
-                    style={{ ...control, width: 110, height: 30 }}
-                  />
-                </td>
+                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{d.openTime}</td>
+                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{d.closeTime}</td>
                 <td style={td}>
                   {d.active ? (
                     <span style={{ color: "var(--st-confirmed-text)", fontWeight: 600 }}>{t.windowOpen}</span>
@@ -289,28 +280,15 @@ export function VenueManagement({
                     <span style={{ color: "#9AA7B2", fontWeight: 600 }}>{t.closedLabel}</span>
                   )}
                 </td>
+                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{breaksCountByDate.get(d.dateIso) ?? 0}</td>
                 <td style={{ ...td, textAlign: "right" }}>
-                  {readOnly ? (
-                    <span style={{ color: "#9AA7B2" }}>—</span>
-                  ) : d.active ? (
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => run(() => closeOperatingDayAction(venue.id, d.dateIso))}
-                      style={{ background: "none", border: "none", color: "#B3261E", fontWeight: 600, fontSize: 12 }}
-                    >
-                      {t.closeDay}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => addOrUpdateDay(d.dateIso, d.openTime, d.closeTime)}
-                      style={{ background: "none", border: "none", color: "var(--st-confirmed-text)", fontWeight: 600, fontSize: 12 }}
-                    >
-                      {t.reopenDay}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => selectDay(d.dateIso)}
+                    style={{ background: "none", border: "none", color: "var(--blue)", fontWeight: 600, fontSize: 12 }}
+                  >
+                    {t.edit}
+                  </button>
                 </td>
               </tr>
             ))}
@@ -318,87 +296,159 @@ export function VenueManagement({
         </table>
       </div>
 
-      {/* Break periods — non-bookable windows within an open day */}
+      {/* Day editor — pick a date (existing or new) to configure its hours
+          and break periods together in one place. */}
       <div style={card}>
-        <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{t.breakPeriods}</h2>
-        <p style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 14 }}>{t.breakPeriodsNote}</p>
+        <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{t.dayEditorTitle}</h2>
+        <p style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 14 }}>{t.dayEditorNote}</p>
 
-        {!readOnly && (
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-            <div>
-              <label style={labelS}>{t.date}</label>
-              <select value={newBreakDate} onChange={(e) => setNewBreakDate(e.target.value)} style={{ ...control, minWidth: 150 }}>
-                <option value="">—</option>
-                {openDays.map((d) => (
-                  <option key={d.dateIso} value={d.dateIso}>{d.dateDisplay}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={labelS}>{t.breakStart}</label>
-              <input type="time" value={newBreakStart} onChange={(e) => setNewBreakStart(e.target.value)} style={control} />
-            </div>
-            <div>
-              <label style={labelS}>{t.breakEnd}</label>
-              <input type="time" value={newBreakEnd} onChange={(e) => setNewBreakEnd(e.target.value)} style={control} />
-            </div>
-            <div style={{ flex: 1, minWidth: 160 }}>
-              <label style={labelS}>{t.breakLabelField} <span style={{ color: "#9AA7B2" }}>{t.optional}</span></label>
-              <input value={newBreakLabel} onChange={(e) => setNewBreakLabel(e.target.value)} placeholder={t.breakLabelPh} style={{ ...control, width: "100%" }} />
-            </div>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                if (!newBreakDate) { setError("Date is required."); return; }
-                run(() => addBreakAction(venue.id, newBreakDate, newBreakStart, newBreakEnd, newBreakLabel));
-                setNewBreakLabel("");
-              }}
-              style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
-            >
-              {t.addBreak}
-            </button>
-          </div>
-        )}
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelS}>{t.date}</label>
+          <input
+            type="date"
+            value={selectedDayIso}
+            onChange={(e) => selectDay(e.target.value)}
+            style={{ ...control, borderColor: selectedDayIso ? "var(--blue)" : "#C7D1DA", width: 200 }}
+          />
+        </div>
 
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead style={{ background: "#F8FAFB" }}>
-            <tr>
-              <th style={th}>{t.date}</th>
-              <th style={th}>{t.breakStart}</th>
-              <th style={th}>{t.breakEnd}</th>
-              <th style={th}>{t.breakLabelField}</th>
-              <th style={{ ...th, textAlign: "right" }}>{t.colActions}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedBreaks.length === 0 && (
-              <tr><td style={{ ...td, color: "#9AA7B2" }} colSpan={5}>{t.noBreaks}</td></tr>
-            )}
-            {sortedBreaks.map((b) => (
-              <tr key={b.id}>
-                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{b.dateDisplay}</td>
-                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{b.startTime}</td>
-                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{b.endTime}</td>
-                <td style={td}>{b.label || "—"}</td>
-                <td style={{ ...td, textAlign: "right" }}>
-                  {readOnly ? (
-                    <span style={{ color: "#9AA7B2" }}>—</span>
-                  ) : (
+        {!selectedDayIso ? (
+          <p style={{ fontSize: 12.5, color: "#9AA7B2" }}>{t.selectDayToManage}</p>
+        ) : !selectedDay && readOnly ? (
+          <p style={{ fontSize: 12.5, color: "#9AA7B2" }}>{t.dayNotConfigured}</p>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              <div>
+                <label style={labelS}>{t.openTime}</label>
+                <input
+                  type="time"
+                  value={dayOpenTime}
+                  onChange={(e) => setDayOpenTime(e.target.value)}
+                  disabled={disabled}
+                  style={control}
+                />
+              </div>
+              <div>
+                <label style={labelS}>{t.closeTime}</label>
+                <input
+                  type="time"
+                  value={dayCloseTime}
+                  onChange={(e) => setDayCloseTime(e.target.value)}
+                  disabled={disabled}
+                  style={control}
+                />
+              </div>
+              {!readOnly && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => addOrUpdateDay(selectedDayIso, dayOpenTime, dayCloseTime)}
+                  style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
+                >
+                  {selectedDay ? t.saveChanges : t.addHours}
+                </button>
+              )}
+              {!readOnly && selectedDay?.active && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => run(() => closeOperatingDayAction(venue.id, selectedDayIso))}
+                  style={{ height: 36, borderRadius: 7, border: "1px solid #C7D1DA", background: "#fff", color: "#B3261E", fontWeight: 600, fontSize: 12.5, padding: "0 14px" }}
+                >
+                  {t.closeDay}
+                </button>
+              )}
+              {!readOnly && selectedDay && !selectedDay.active && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => addOrUpdateDay(selectedDayIso, dayOpenTime, dayCloseTime)}
+                  style={{ height: 36, borderRadius: 7, border: "1px solid #C7D1DA", background: "#fff", color: "var(--st-confirmed-text)", fontWeight: 600, fontSize: 12.5, padding: "0 14px" }}
+                >
+                  {t.reopenDay}
+                </button>
+              )}
+            </div>
+
+            <div style={{ borderTop: "1px solid #EBF0F4", margin: "16px 0 14px" }} />
+            <div style={{ fontWeight: 700, fontSize: 12.5, letterSpacing: ".04em", color: "#33475B", marginBottom: 4 }}>
+              {t.breakPeriods}
+            </div>
+            <p style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 12 }}>{t.breakPeriodsNote}</p>
+
+            {!selectedDay?.active ? (
+              <p style={{ fontSize: 12, color: "#9AA7B2" }}>{t.breaksNeedOpenDay}</p>
+            ) : (
+              <>
+                {!readOnly && (
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+                    <div>
+                      <label style={labelS}>{t.breakStart}</label>
+                      <input type="time" value={newBreakStart} onChange={(e) => setNewBreakStart(e.target.value)} style={control} />
+                    </div>
+                    <div>
+                      <label style={labelS}>{t.breakEnd}</label>
+                      <input type="time" value={newBreakEnd} onChange={(e) => setNewBreakEnd(e.target.value)} style={control} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 160 }}>
+                      <label style={labelS}>{t.breakLabelField} <span style={{ color: "#9AA7B2" }}>{t.optional}</span></label>
+                      <input value={newBreakLabel} onChange={(e) => setNewBreakLabel(e.target.value)} placeholder={t.breakLabelPh} style={{ ...control, width: "100%" }} />
+                    </div>
                     <button
                       type="button"
                       disabled={pending}
-                      onClick={() => run(() => removeBreakAction(venue.id, b.id))}
-                      style={{ background: "none", border: "none", color: "#B3261E", fontWeight: 600, fontSize: 12 }}
+                      onClick={() => {
+                        run(() => addBreakAction(venue.id, selectedDayIso, newBreakStart, newBreakEnd, newBreakLabel));
+                        setNewBreakLabel("");
+                      }}
+                      style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
                     >
-                      {t.remove}
+                      {t.addBreak}
                     </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </div>
+                )}
+
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead style={{ background: "#F8FAFB" }}>
+                    <tr>
+                      <th style={th}>{t.breakStart}</th>
+                      <th style={th}>{t.breakEnd}</th>
+                      <th style={th}>{t.breakLabelField}</th>
+                      <th style={{ ...th, textAlign: "right" }}>{t.colActions}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dayBreaks.length === 0 && (
+                      <tr><td style={{ ...td, color: "#9AA7B2" }} colSpan={4}>{t.noBreaks}</td></tr>
+                    )}
+                    {dayBreaks.map((b) => (
+                      <tr key={b.id}>
+                        <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{b.startTime}</td>
+                        <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{b.endTime}</td>
+                        <td style={td}>{b.label || "—"}</td>
+                        <td style={{ ...td, textAlign: "right" }}>
+                          {readOnly ? (
+                            <span style={{ color: "#9AA7B2" }}>—</span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={pending}
+                              onClick={() => run(() => removeBreakAction(venue.id, b.id))}
+                              style={{ background: "none", border: "none", color: "#B3261E", fontWeight: 600, fontSize: 12 }}
+                            >
+                              {t.remove}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </>
+        )}
       </div>
 
       {/* Compound & gate maintenance (§8, §15.5) */}
