@@ -160,6 +160,7 @@ export const dict = {
     closedLabel: "Fermé",
     colBreaks: "Pauses",
     dateRequired: "La date est requise.",
+    filterByDate: "Filtrer par date",
     // Day editor — select one date to configure its hours + breaks together
     dayEditorTitle: "Configuration du jour",
     dayEditorNote: "Choisissez une date pour définir ses horaires d'ouverture et ses pauses.",
@@ -434,6 +435,7 @@ export const dict = {
     closedLabel: "Closed",
     colBreaks: "Breaks",
     dateRequired: "Date is required.",
+    filterByDate: "Filter by date",
     // Day editor — select one date to configure its hours + breaks together
     dayEditorTitle: "Day configuration",
     dayEditorNote: "Pick a date to set its operating hours and break periods.",

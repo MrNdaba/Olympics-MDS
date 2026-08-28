@@ -83,6 +83,12 @@ export function VenueManagement({
   const [selectedDayIso, setSelectedDayIso] = useState("");
   const [dayOpenTime, setDayOpenTime] = useState("08:00");
   const [dayCloseTime, setDayCloseTime] = useState("18:00");
+
+  // Break periods — a separate, filterable overview (own date filter, own
+  // add form) rather than scoped to whichever day the editor above has open,
+  // so reviewing/adding breaks doesn't require stepping into hours-editing.
+  const [breakFilterDate, setBreakFilterDate] = useState(""); // "" = all days
+  const [newBreakDate, setNewBreakDate] = useState("");
   const [newBreakStart, setNewBreakStart] = useState("12:00");
   const [newBreakEnd, setNewBreakEnd] = useState("13:00");
   const [newBreakLabel, setNewBreakLabel] = useState("");
@@ -121,20 +127,27 @@ export function VenueManagement({
     [venue],
   );
 
-  // Break count per day, for the Operating hours table's "Breaks" column, and
-  // the selected day's own breaks, chronological, for the day editor panel.
+  // Break count per day, for the Operating hours table's "Breaks" column —
+  // clicking a count jumps the filter below straight to that day.
   const breaksCountByDate = useMemo(() => {
     const counts = new Map<string, number>();
     for (const b of venue?.breaks ?? []) counts.set(b.dateIso, (counts.get(b.dateIso) ?? 0) + 1);
     return counts;
   }, [venue]);
-  const dayBreaks = useMemo(
-    () =>
-      (venue?.breaks ?? [])
-        .filter((b) => b.dateIso === selectedDayIso)
-        .sort((a, b) => a.startTime.localeCompare(b.startTime)),
-    [venue, selectedDayIso],
-  );
+
+  // Only currently-open days can host a break (§10/D4 — a closed day has no
+  // slots to begin with) — the source list for both the date filter and the
+  // add-break form below.
+  const openDays = useMemo(() => (venue?.days ?? []).filter((d) => d.active), [venue]);
+
+  // All breaks, chronological, narrowed to one day when a filter is set —
+  // "view all break periods for a specific day" (break-periods date filter).
+  const filteredBreaks = useMemo(() => {
+    const all = [...(venue?.breaks ?? [])].sort((a, b) =>
+      `${a.dateIso}${a.startTime}`.localeCompare(`${b.dateIso}${b.startTime}`),
+    );
+    return breakFilterDate ? all.filter((b) => b.dateIso === breakFilterDate) : all;
+  }, [venue, breakFilterDate]);
 
   if (!venue) {
     return <p style={{ color: "#9AA7B2", fontSize: 13 }}>{t.noVenues}</p>;
@@ -280,7 +293,20 @@ export function VenueManagement({
                     <span style={{ color: "#9AA7B2", fontWeight: 600 }}>{t.closedLabel}</span>
                   )}
                 </td>
-                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{breaksCountByDate.get(d.dateIso) ?? 0}</td>
+                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>
+                  {(breaksCountByDate.get(d.dateIso) ?? 0) > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setBreakFilterDate(d.dateIso)}
+                      title={t.breakPeriods}
+                      style={{ background: "none", border: "none", color: "var(--blue)", fontFamily: "var(--font-mono)", fontSize: 12.5, textDecoration: "underline dashed", textUnderlineOffset: 2, cursor: "pointer" }}
+                    >
+                      {breaksCountByDate.get(d.dateIso)}
+                    </button>
+                  ) : (
+                    0
+                  )}
+                </td>
                 <td style={{ ...td, textAlign: "right" }}>
                   <button
                     type="button"
@@ -317,138 +343,158 @@ export function VenueManagement({
         ) : !selectedDay && readOnly ? (
           <p style={{ fontSize: 12.5, color: "#9AA7B2" }}>{t.dayNotConfigured}</p>
         ) : (
-          <>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-              <div>
-                <label style={labelS}>{t.openTime}</label>
-                <input
-                  type="time"
-                  value={dayOpenTime}
-                  onChange={(e) => setDayOpenTime(e.target.value)}
-                  disabled={disabled}
-                  style={control}
-                />
-              </div>
-              <div>
-                <label style={labelS}>{t.closeTime}</label>
-                <input
-                  type="time"
-                  value={dayCloseTime}
-                  onChange={(e) => setDayCloseTime(e.target.value)}
-                  disabled={disabled}
-                  style={control}
-                />
-              </div>
-              {!readOnly && (
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => addOrUpdateDay(selectedDayIso, dayOpenTime, dayCloseTime)}
-                  style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
-                >
-                  {selectedDay ? t.saveChanges : t.addHours}
-                </button>
-              )}
-              {!readOnly && selectedDay?.active && (
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => run(() => closeOperatingDayAction(venue.id, selectedDayIso))}
-                  style={{ height: 36, borderRadius: 7, border: "1px solid #C7D1DA", background: "#fff", color: "#B3261E", fontWeight: 600, fontSize: 12.5, padding: "0 14px" }}
-                >
-                  {t.closeDay}
-                </button>
-              )}
-              {!readOnly && selectedDay && !selectedDay.active && (
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => addOrUpdateDay(selectedDayIso, dayOpenTime, dayCloseTime)}
-                  style={{ height: 36, borderRadius: 7, border: "1px solid #C7D1DA", background: "#fff", color: "var(--st-confirmed-text)", fontWeight: 600, fontSize: 12.5, padding: "0 14px" }}
-                >
-                  {t.reopenDay}
-                </button>
-              )}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 10, flexWrap: "wrap" }}>
+            <div>
+              <label style={labelS}>{t.openTime}</label>
+              <input
+                type="time"
+                value={dayOpenTime}
+                onChange={(e) => setDayOpenTime(e.target.value)}
+                disabled={disabled}
+                style={control}
+              />
             </div>
-
-            <div style={{ borderTop: "1px solid #EBF0F4", margin: "16px 0 14px" }} />
-            <div style={{ fontWeight: 700, fontSize: 12.5, letterSpacing: ".04em", color: "#33475B", marginBottom: 4 }}>
-              {t.breakPeriods}
+            <div>
+              <label style={labelS}>{t.closeTime}</label>
+              <input
+                type="time"
+                value={dayCloseTime}
+                onChange={(e) => setDayCloseTime(e.target.value)}
+                disabled={disabled}
+                style={control}
+              />
             </div>
-            <p style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 12 }}>{t.breakPeriodsNote}</p>
+            {!readOnly && (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => addOrUpdateDay(selectedDayIso, dayOpenTime, dayCloseTime)}
+                style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
+              >
+                {selectedDay ? t.saveChanges : t.addHours}
+              </button>
+            )}
+            {!readOnly && selectedDay?.active && (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => run(() => closeOperatingDayAction(venue.id, selectedDayIso))}
+                style={{ height: 36, borderRadius: 7, border: "1px solid #C7D1DA", background: "#fff", color: "#B3261E", fontWeight: 600, fontSize: 12.5, padding: "0 14px" }}
+              >
+                {t.closeDay}
+              </button>
+            )}
+            {!readOnly && selectedDay && !selectedDay.active && (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => addOrUpdateDay(selectedDayIso, dayOpenTime, dayCloseTime)}
+                style={{ height: 36, borderRadius: 7, border: "1px solid #C7D1DA", background: "#fff", color: "var(--st-confirmed-text)", fontWeight: 600, fontSize: 12.5, padding: "0 14px" }}
+              >
+                {t.reopenDay}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
-            {!selectedDay?.active ? (
-              <p style={{ fontSize: 12, color: "#9AA7B2" }}>{t.breaksNeedOpenDay}</p>
-            ) : (
-              <>
-                {!readOnly && (
-                  <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-                    <div>
-                      <label style={labelS}>{t.breakStart}</label>
-                      <input type="time" value={newBreakStart} onChange={(e) => setNewBreakStart(e.target.value)} style={control} />
-                    </div>
-                    <div>
-                      <label style={labelS}>{t.breakEnd}</label>
-                      <input type="time" value={newBreakEnd} onChange={(e) => setNewBreakEnd(e.target.value)} style={control} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 160 }}>
-                      <label style={labelS}>{t.breakLabelField} <span style={{ color: "#9AA7B2" }}>{t.optional}</span></label>
-                      <input value={newBreakLabel} onChange={(e) => setNewBreakLabel(e.target.value)} placeholder={t.breakLabelPh} style={{ ...control, width: "100%" }} />
-                    </div>
+      {/* Break periods — filterable overview across the whole schedule
+          (break-periods date filter): pick a day to see only its breaks, or
+          leave it on "All" to review every configured break at once. */}
+      <div style={card}>
+        <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{t.breakPeriods}</h2>
+        <p style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 14 }}>{t.breakPeriodsNote}</p>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelS}>{t.filterByDate}</label>
+          <select
+            value={breakFilterDate}
+            onChange={(e) => setBreakFilterDate(e.target.value)}
+            style={{ ...control, minWidth: 180 }}
+          >
+            <option value="">{t.all}</option>
+            {openDays.map((d) => (
+              <option key={d.dateIso} value={d.dateIso}>{d.dateDisplay}</option>
+            ))}
+          </select>
+        </div>
+
+        {!readOnly && (
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+            <div>
+              <label style={labelS}>{t.date}</label>
+              <select value={newBreakDate} onChange={(e) => setNewBreakDate(e.target.value)} style={{ ...control, minWidth: 150 }}>
+                <option value="">—</option>
+                {openDays.map((d) => (
+                  <option key={d.dateIso} value={d.dateIso}>{d.dateDisplay}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelS}>{t.breakStart}</label>
+              <input type="time" value={newBreakStart} onChange={(e) => setNewBreakStart(e.target.value)} style={control} />
+            </div>
+            <div>
+              <label style={labelS}>{t.breakEnd}</label>
+              <input type="time" value={newBreakEnd} onChange={(e) => setNewBreakEnd(e.target.value)} style={control} />
+            </div>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <label style={labelS}>{t.breakLabelField} <span style={{ color: "#9AA7B2" }}>{t.optional}</span></label>
+              <input value={newBreakLabel} onChange={(e) => setNewBreakLabel(e.target.value)} placeholder={t.breakLabelPh} style={{ ...control, width: "100%" }} />
+            </div>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                if (!newBreakDate) { setError(t.dateRequired); return; }
+                run(() => addBreakAction(venue.id, newBreakDate, newBreakStart, newBreakEnd, newBreakLabel));
+                setNewBreakLabel("");
+              }}
+              style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
+            >
+              {t.addBreak}
+            </button>
+          </div>
+        )}
+
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead style={{ background: "#F8FAFB" }}>
+            <tr>
+              <th style={th}>{t.date}</th>
+              <th style={th}>{t.breakStart}</th>
+              <th style={th}>{t.breakEnd}</th>
+              <th style={th}>{t.breakLabelField}</th>
+              <th style={{ ...th, textAlign: "right" }}>{t.colActions}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredBreaks.length === 0 && (
+              <tr><td style={{ ...td, color: "#9AA7B2" }} colSpan={5}>{t.noBreaks}</td></tr>
+            )}
+            {filteredBreaks.map((b) => (
+              <tr key={b.id}>
+                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{b.dateDisplay}</td>
+                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{b.startTime}</td>
+                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{b.endTime}</td>
+                <td style={td}>{b.label || "—"}</td>
+                <td style={{ ...td, textAlign: "right" }}>
+                  {readOnly ? (
+                    <span style={{ color: "#9AA7B2" }}>—</span>
+                  ) : (
                     <button
                       type="button"
                       disabled={pending}
-                      onClick={() => {
-                        run(() => addBreakAction(venue.id, selectedDayIso, newBreakStart, newBreakEnd, newBreakLabel));
-                        setNewBreakLabel("");
-                      }}
-                      style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
+                      onClick={() => run(() => removeBreakAction(venue.id, b.id))}
+                      style={{ background: "none", border: "none", color: "#B3261E", fontWeight: 600, fontSize: 12 }}
                     >
-                      {t.addBreak}
+                      {t.remove}
                     </button>
-                  </div>
-                )}
-
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead style={{ background: "#F8FAFB" }}>
-                    <tr>
-                      <th style={th}>{t.breakStart}</th>
-                      <th style={th}>{t.breakEnd}</th>
-                      <th style={th}>{t.breakLabelField}</th>
-                      <th style={{ ...th, textAlign: "right" }}>{t.colActions}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dayBreaks.length === 0 && (
-                      <tr><td style={{ ...td, color: "#9AA7B2" }} colSpan={4}>{t.noBreaks}</td></tr>
-                    )}
-                    {dayBreaks.map((b) => (
-                      <tr key={b.id}>
-                        <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{b.startTime}</td>
-                        <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{b.endTime}</td>
-                        <td style={td}>{b.label || "—"}</td>
-                        <td style={{ ...td, textAlign: "right" }}>
-                          {readOnly ? (
-                            <span style={{ color: "#9AA7B2" }}>—</span>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={pending}
-                              onClick={() => run(() => removeBreakAction(venue.id, b.id))}
-                              style={{ background: "none", border: "none", color: "#B3261E", fontWeight: 600, fontSize: 12 }}
-                            >
-                              {t.remove}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
-            )}
-          </>
-        )}
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {/* Compound & gate maintenance (§8, §15.5) */}
