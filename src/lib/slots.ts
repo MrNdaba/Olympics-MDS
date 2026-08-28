@@ -1,6 +1,6 @@
 import { prisma } from "./db";
 import { ACTIVE_STATUSES } from "./constants";
-import { addDays, atMinutes, hmToMinutes } from "./time";
+import { addDays, atMinutes, hmToMinutes, rangesOverlap } from "./time";
 
 export interface SlotView {
   startMinutes: number;
@@ -8,6 +8,9 @@ export interface SlotView {
   start: Date; // UTC instant (== Dakar wall clock)
   end: Date;
   available: boolean;
+  /** True when this slot falls inside a configured break period — a more
+   *  specific reason than "held" for the UI to surface (break slots item). */
+  onBreak: boolean;
 }
 
 /** Build the slot grid for a venue on a Dakar day from its OperatingDay record.
@@ -24,12 +27,17 @@ export async function getDaySlots(
 
   const operatingDay = await prisma.operatingDay.findUnique({
     where: { venueId_date: { venueId, date: day } },
+    include: { breaks: true },
   });
   if (!operatingDay || !operatingDay.active) return { open: false, slots: [] };
 
   const duration = venue.defaultSlotDurationMinutes;
   const openMin = hmToMinutes(operatingDay.openTime);
   const closeMin = hmToMinutes(operatingDay.closeTime);
+  const breakRanges = operatingDay.breaks.map((b) => ({
+    start: hmToMinutes(b.startTime),
+    end: hmToMinutes(b.endTime),
+  }));
 
   // Active holds for this venue on this day block the matching slot (D8).
   const dayEnd = addDays(day, 1);
@@ -52,12 +60,14 @@ export async function getDaySlots(
   for (let m = openMin; m + duration <= closeMin; m += duration) {
     const start = atMinutes(day, m);
     const end = atMinutes(day, m + duration);
+    const onBreak = breakRanges.some((b) => rangesOverlap(m, m + duration, b.start, b.end));
     slots.push({
       startMinutes: m,
       endMinutes: m + duration,
       start,
       end,
-      available: !held.has(start.getTime()) && start.getTime() > now,
+      available: !onBreak && !held.has(start.getTime()) && start.getTime() > now,
+      onBreak,
     });
   }
 

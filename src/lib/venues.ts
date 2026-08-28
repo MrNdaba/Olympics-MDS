@@ -29,12 +29,23 @@ export async function getManagedVenues(user: SessionUser) {
   });
 }
 
-/** Operating-day records for a venue, chronological (§10, §15.5). */
+/** Operating-day records for a venue, chronological, each with its configured
+ *  break periods (§10, §15.5; break slots item). */
 export async function getVenueOperatingDays(venueId: string) {
   return prisma.operatingDay.findMany({
     where: { venueId },
     orderBy: { date: "asc" },
-    select: { id: true, date: true, openTime: true, closeTime: true, active: true },
+    select: {
+      id: true,
+      date: true,
+      openTime: true,
+      closeTime: true,
+      active: true,
+      breaks: {
+        orderBy: { startTime: "asc" },
+        select: { id: true, startTime: true, endTime: true, label: true },
+      },
+    },
   });
 }
 

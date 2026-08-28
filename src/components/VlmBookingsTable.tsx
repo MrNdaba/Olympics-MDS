@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Dict } from "@/lib/i18n";
-import { StatusChip, TypeChip } from "./Chips";
+import { AmendedBadge, StatusChip, TypeChip } from "./Chips";
 import { ModalCloseButton } from "./ModalCloseButton";
 import {
   validateBookingAction,
@@ -29,6 +29,9 @@ export interface VlmRow {
   canReinstate: boolean;
   /** Reason stored on the "cancelled" audit entry, if any (item #5). */
   cancelReason?: string | null;
+  /** Changed-field names from the latest "amended" audit entry, if any
+   *  (amend indicators item) — empty/undefined means never amended. */
+  amendedFields?: string[];
 }
 
 const th: React.CSSProperties = {
@@ -156,7 +159,10 @@ export function VlmBookingsTable({
                   <td style={td}>{r.transporterName}</td>
                   <td style={td}>{r.compoundLabel}</td>
                   <td style={td}>{r.gateLabel}</td>
-                  <td style={td}><StatusChip status={r.status} t={t} reason={r.cancelReason} /></td>
+                  <td style={td}>
+                    <StatusChip status={r.status} t={t} reason={r.cancelReason} />{" "}
+                    <AmendedBadge t={t} fields={r.amendedFields} />
+                  </td>
                   <td style={td}>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       {!readOnly && r.canValidate && solidBtn("var(--st-confirmed)", `✓ ${t.validate}`, () => run(() => validateBookingAction(r.id)))}

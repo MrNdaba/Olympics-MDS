@@ -1,5 +1,6 @@
 import { BookingStatus, BookingType } from "@/lib/constants";
 import type { Dict } from "@/lib/i18n";
+import { translateAmendedFields } from "@/lib/audit";
 
 const STATUS_LABEL: Record<BookingStatus, keyof Dict> = {
   PendingValidation: "stPending",
@@ -27,6 +28,22 @@ export function StatusChip({
       {chip}
       <span className="reason-tooltip-bubble" role="tooltip">
         {t.reasonLabel}: {reason}
+      </span>
+    </span>
+  );
+}
+
+/** Small "Amended" badge for list rows (amend indicators item) — shown only
+ *  when the booking has at least one "amended" audit entry. Hover/focus
+ *  reveals which fields changed on the latest amendment (never old values). */
+export function AmendedBadge({ t, fields }: { t: Dict; fields?: string[] }) {
+  if (!fields || fields.length === 0) return null;
+  const labels = translateAmendedFields(fields, t);
+  return (
+    <span className="reason-tooltip" data-has-reason="true" tabIndex={0}>
+      <span className="amended-badge">✎ {t.amendedBadge}</span>
+      <span className="reason-tooltip-bubble" role="tooltip">
+        {t.amendedFieldsLabel}: {labels.join(", ")}
       </span>
     </span>
   );

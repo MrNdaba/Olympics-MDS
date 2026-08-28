@@ -496,7 +496,16 @@ export function BookingForm({
                   color: "var(--ink)",
                 };
                 let st = base;
-                if (!s.available)
+                if (s.onBreak)
+                  st = {
+                    ...base,
+                    background: "#FCF3E1",
+                    border: "1px solid #F2DDAE",
+                    color: "#9A6400",
+                    textDecoration: "line-through",
+                    cursor: "not-allowed",
+                  };
+                else if (!s.available)
                   st = {
                     ...base,
                     background: "#F4F6F8",
@@ -508,7 +517,13 @@ export function BookingForm({
                 else if (selected)
                   st = { ...base, background: "var(--blue)", color: "#fff", border: "1px solid var(--blue)", fontWeight: 600 };
                 return (
-                  <button key={s.startMinutes} type="button" onClick={() => clickSlot(s)} style={st}>
+                  <button
+                    key={s.startMinutes}
+                    type="button"
+                    onClick={() => clickSlot(s)}
+                    title={s.onBreak ? t.onBreakBadge : undefined}
+                    style={st}
+                  >
                     {minutesToHm(s.startMinutes)}
                   </button>
                 );
@@ -527,6 +542,9 @@ export function BookingForm({
             <Legend color="#fff" border="#C7D1DA" label={t.legFree} />
             <Legend color="var(--blue)" border="var(--blue)" label={t.legSelected} />
             <Legend color="#F4F6F8" border="#E3E9EF" label={t.legHeld} />
+            {slotState.slots.some((s) => s.onBreak) && (
+              <Legend color="#FCF3E1" border="#F2DDAE" label={t.legBreak} />
+            )}
           </div>
         </div>
 

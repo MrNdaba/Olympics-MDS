@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getActiveVenues } from "@/lib/venues";
 import { ACTIVE_STATUSES, type BookingStatus } from "@/lib/constants";
 import { formatShortDate, formatWindow, parseDakarDay } from "@/lib/time";
+import { parseChangedFields } from "@/lib/audit";
 import { TopBar, type NavItem } from "@/components/TopBar";
 import { MyBookings, type BookingRow } from "@/components/MyBookings";
 import { FilterBar } from "@/components/FilterBar";
@@ -46,8 +47,14 @@ export default async function SupplierBookingsPage({
     where,
     include: {
       venue: true,
-      // Latest cancellation reason, if any, for the status-badge tooltip (item #5).
-      auditEntries: { where: { action: "cancelled" }, orderBy: { timestamp: "desc" }, take: 1 },
+      // Latest cancellation reason (item #5) and amendment history (amend
+      // indicators item) — ordered desc so the first match of each action
+      // in JS below is the most recent one.
+      auditEntries: {
+        where: { action: { in: ["cancelled", "amended"] } },
+        orderBy: { timestamp: "desc" },
+        take: 20,
+      },
     },
     orderBy: { createdAt: sp.sort === "oldest" ? "asc" : "desc" },
     take: 50,
@@ -65,7 +72,8 @@ export default async function SupplierBookingsPage({
     status: b.status,
     canCancel:
       ACTIVE_STATUSES.includes(b.status as BookingStatus) && b.slotStart.getTime() > now,
-    cancelReason: b.auditEntries[0]?.reason ?? null,
+    cancelReason: b.auditEntries.find((a) => a.action === "cancelled")?.reason ?? null,
+    amendedFields: parseChangedFields(b.auditEntries.find((a) => a.action === "amended")?.detail),
   }));
 
   const nav: NavItem[] = supplierNav("mine", t);

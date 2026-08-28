@@ -11,7 +11,8 @@ import {
   type BookingStatus,
   type BookingType,
 } from "./constants";
-import { atMinutes, formatLongDate, hmOf, hmToMinutes } from "./time";
+import { atMinutes, dayIso, formatLongDate, hmOf, hmToMinutes, rangesOverlap } from "./time";
+import { parseChangedFields } from "./audit";
 import type { SessionUser } from "./auth";
 
 export function formatReference(siteCode: string, refNumber: number): string {
@@ -40,6 +41,21 @@ export interface CreateBookingInput {
 }
 
 export class BookingError extends Error {}
+
+/** Reject a requested [startMin, endMin) window that overlaps any configured
+ *  break period for the day (break slots item) — the same exclusion
+ *  getDaySlots applies when building the picker, enforced again here so a
+ *  direct/stale submission can't slip a break-covered slot through. */
+function assertNoBreakOverlap(
+  breaks: { startTime: string; endTime: string }[],
+  startMin: number,
+  endMin: number,
+): void {
+  const onBreak = breaks.some((b) =>
+    rangesOverlap(startMin, endMin, hmToMinutes(b.startTime), hmToMinutes(b.endTime)),
+  );
+  if (onBreak) throw new BookingError("Selected window overlaps a break period.");
+}
 
 /** Create a booking with atomic, race-safe slot reservation (spec §9, §11, D8). */
 export async function createBooking(input: CreateBookingInput, user: SessionUser) {
@@ -77,6 +93,7 @@ export async function createBooking(input: CreateBookingInput, user: SessionUser
 
   const operatingDay = await prisma.operatingDay.findUnique({
     where: { venueId_date: { venueId: input.venueId, date: input.serviceDate } },
+    include: { breaks: true },
   });
   if (!operatingDay || !operatingDay.active) {
     throw new BookingError("Venue is closed on the selected date.");
@@ -99,6 +116,7 @@ export async function createBooking(input: CreateBookingInput, user: SessionUser
   ) {
     throw new BookingError("Selected window is outside operating hours.");
   }
+  assertNoBreakOverlap(operatingDay.breaks, startMin, endMin);
 
   const slotStart = atMinutes(input.serviceDate, startMin);
   const slotEnd = atMinutes(input.serviceDate, endMin);
@@ -247,10 +265,18 @@ async function afterCreateNotifications(bookingId: string, status: BookingStatus
 export async function sendBookingConfirmationEmail(bookingId: string): Promise<void> {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { venue: true, compound: true, gate: true, createdBy: true },
+    include: {
+      venue: true,
+      compound: true,
+      gate: true,
+      createdBy: true,
+      // Latest amendment, if any — surfaced on the PDF (amend indicators item).
+      auditEntries: { where: { action: "amended" }, orderBy: { timestamp: "desc" }, take: 1 },
+    },
   });
   if (!booking) return;
 
+  const amendedFields = parseChangedFields(booking.auditEntries[0]?.detail);
   const lang = DEFAULT_LANG;
   const t = getDict(lang);
   const status = booking.status as BookingStatus;
@@ -283,6 +309,7 @@ export async function sendBookingConfirmationEmail(bookingId: string): Promise<v
         volumeM3: booking.volumeM3,
         comments: booking.comments,
         createdAt: booking.createdAt,
+        amendedFields,
       },
       lang,
     );
@@ -513,6 +540,7 @@ export async function amendBooking(
 
   const operatingDay = await prisma.operatingDay.findUnique({
     where: { venueId_date: { venueId: input.venueId, date: input.serviceDate } },
+    include: { breaks: true },
   });
   if (!operatingDay || !operatingDay.active) {
     throw new BookingError("Venue is closed on the selected date.");
@@ -527,6 +555,7 @@ export async function amendBooking(
   if (startMin < hmToMinutes(operatingDay.openTime) || endMin > hmToMinutes(operatingDay.closeTime)) {
     throw new BookingError("Selected window is outside operating hours.");
   }
+  assertNoBreakOverlap(operatingDay.breaks, startMin, endMin);
 
   const slotStart = atMinutes(input.serviceDate, startMin);
   const slotEnd = atMinutes(input.serviceDate, endMin);
@@ -546,6 +575,28 @@ export async function amendBooking(
 
   const reference = formatReference(venue.siteCode, booking.refNumber);
 
+  // Which fields actually changed (amend indicators item) — identity only,
+  // never the before/after values, per the requirement.
+  const changedFields: string[] = [];
+  if (booking.type !== input.type) changedFields.push("type");
+  if (booking.venueId !== input.venueId) changedFields.push("venue");
+  if (booking.compoundId !== input.compoundId) changedFields.push("compound");
+  if (booking.gateId !== input.gateId) changedFields.push("gate");
+  if (dayIso(booking.serviceDate) !== dayIso(input.serviceDate)) changedFields.push("date");
+  if (booking.slotStart.getTime() !== slotStart.getTime() || booking.slotEnd.getTime() !== slotEnd.getTime()) {
+    changedFields.push("window");
+  }
+  if (booking.vehicleType !== input.vehicleType) changedFields.push("vehicleType");
+  if (booking.merchandiseType !== input.merchandiseType) changedFields.push("merchandiseType");
+  if ((booking.packagingType ?? "") !== (input.packagingType ?? "")) changedFields.push("packagingType");
+  if ((booking.quantity ?? "") !== (input.quantity ?? "")) changedFields.push("quantity");
+  if ((booking.weightKg ?? null) !== (input.weightKg ?? null)) changedFields.push("weightKg");
+  if ((booking.volumeM3 ?? null) !== (input.volumeM3 ?? null)) changedFields.push("volumeM3");
+  if (booking.transporterName !== input.transporterName) changedFields.push("transporterName");
+  if (booking.transporterContact !== input.transporterContact) changedFields.push("transporterContact");
+  if ((booking.supplierContact ?? "") !== (input.supplierContact ?? "")) changedFields.push("supplierContact");
+  if ((booking.comments ?? "") !== (input.comments ?? "")) changedFields.push("comments");
+
   const detail = JSON.stringify({
     previousVenue: booking.siteCode,
     newVenue: venue.siteCode,
@@ -553,6 +604,7 @@ export async function amendBooking(
     newDate: input.serviceDate.toISOString().slice(0, 10),
     previousWindow: `${booking.slotStart.toISOString()}→${booking.slotEnd.toISOString()}`,
     newWindow: `${slotStart.toISOString()}→${slotEnd.toISOString()}`,
+    changedFields,
   });
 
   const updated = await prisma

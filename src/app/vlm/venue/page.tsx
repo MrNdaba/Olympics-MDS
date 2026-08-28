@@ -32,6 +32,17 @@ export default async function VlmVenuePage() {
           closeTime: d.closeTime,
           active: d.active,
         })),
+        // Flattened across days for a single "Break periods" table (break slots item).
+        breaks: days.flatMap((d) =>
+          d.breaks.map((b) => ({
+            id: b.id,
+            dateIso: dayIso(d.date),
+            dateDisplay: formatShortDate(d.date),
+            startTime: b.startTime,
+            endTime: b.endTime,
+            label: b.label ?? "",
+          })),
+        ),
         compounds: routing.compounds,
         gates: routing.gates,
         routes: routing.routes,

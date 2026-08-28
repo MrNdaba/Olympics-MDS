@@ -2,6 +2,7 @@ import { getSessionUser, canAccessVenue } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getLang } from "@/lib/lang";
 import { buildConfirmationPdf } from "@/lib/pdf";
+import { parseChangedFields } from "@/lib/audit";
 import type { BookingStatus } from "@/lib/constants";
 
 // Downloadable / attachable booking-confirmation PDF (spec §14).
@@ -15,7 +16,13 @@ export async function GET(
   const { id } = await params;
   const booking = await prisma.booking.findUnique({
     where: { id },
-    include: { venue: true, compound: true, gate: true },
+    include: {
+      venue: true,
+      compound: true,
+      gate: true,
+      // Latest amendment, if any — surfaced on the PDF (amend indicators item).
+      auditEntries: { where: { action: "amended" }, orderBy: { timestamp: "desc" }, take: 1 },
+    },
   });
   if (!booking) return new Response("Not found", { status: 404 });
 
@@ -51,6 +58,7 @@ export async function GET(
       volumeM3: booking.volumeM3,
       comments: booking.comments,
       createdAt: booking.createdAt,
+      amendedFields: parseChangedFields(booking.auditEntries[0]?.detail),
     },
     lang,
   );

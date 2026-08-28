@@ -8,6 +8,8 @@ import {
   closeOperatingDayAction,
   setVenueSlotDurationAction,
   setBookingWindowAction,
+  addBreakAction,
+  removeBreakAction,
   addCompoundAction,
   removeCompoundAction,
   addGateAction,
@@ -24,6 +26,15 @@ export interface OperatingDayRow {
   active: boolean;
 }
 
+export interface BreakRow {
+  id: string;
+  dateIso: string;
+  dateDisplay: string;
+  startTime: string;
+  endTime: string;
+  label: string;
+}
+
 export interface ManagedVenue {
   id: string;
   name: string;
@@ -33,6 +44,7 @@ export interface ManagedVenue {
   bookingWindowOpen: boolean;
   slotDuration: number;
   days: OperatingDayRow[];
+  breaks: BreakRow[];
   compounds: { id: string; department: string; label: string }[];
   gates: { id: string; label: string }[];
   routes: { compoundId: string; gateId: string }[];
@@ -69,6 +81,11 @@ export function VenueManagement({
   const [newCompoundLabel, setNewCompoundLabel] = useState("");
   const [newGateLabel, setNewGateLabel] = useState("");
 
+  const [newBreakDate, setNewBreakDate] = useState("");
+  const [newBreakStart, setNewBreakStart] = useState("12:00");
+  const [newBreakEnd, setNewBreakEnd] = useState("13:00");
+  const [newBreakLabel, setNewBreakLabel] = useState("");
+
   const venue = useMemo(() => venues.find((v) => v.id === selectedId), [venues, selectedId]);
 
   // Newest ⇄ Oldest sort for the operating-days schedule (item #10) — sorts
@@ -84,6 +101,17 @@ export function VenueManagement({
 
   const routeSet = useMemo(
     () => new Set((venue?.routes ?? []).map((r) => `${r.compoundId}|${r.gateId}`)),
+    [venue],
+  );
+
+  // Days currently open — only these can host a new break — and the venue's
+  // breaks sorted chronologically for the table below.
+  const openDays = useMemo(() => (venue?.days ?? []).filter((d) => d.active), [venue]);
+  const sortedBreaks = useMemo(
+    () =>
+      [...(venue?.breaks ?? [])].sort((a, b) =>
+        `${a.dateIso}${a.startTime}`.localeCompare(`${b.dateIso}${b.startTime}`),
+      ),
     [venue],
   );
 
@@ -281,6 +309,89 @@ export function VenueManagement({
                       style={{ background: "none", border: "none", color: "var(--st-confirmed-text)", fontWeight: 600, fontSize: 12 }}
                     >
                       {t.reopenDay}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Break periods — non-bookable windows within an open day */}
+      <div style={card}>
+        <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{t.breakPeriods}</h2>
+        <p style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 14 }}>{t.breakPeriodsNote}</p>
+
+        {!readOnly && (
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+            <div>
+              <label style={labelS}>{t.date}</label>
+              <select value={newBreakDate} onChange={(e) => setNewBreakDate(e.target.value)} style={{ ...control, minWidth: 150 }}>
+                <option value="">—</option>
+                {openDays.map((d) => (
+                  <option key={d.dateIso} value={d.dateIso}>{d.dateDisplay}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelS}>{t.breakStart}</label>
+              <input type="time" value={newBreakStart} onChange={(e) => setNewBreakStart(e.target.value)} style={control} />
+            </div>
+            <div>
+              <label style={labelS}>{t.breakEnd}</label>
+              <input type="time" value={newBreakEnd} onChange={(e) => setNewBreakEnd(e.target.value)} style={control} />
+            </div>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <label style={labelS}>{t.breakLabelField} <span style={{ color: "#9AA7B2" }}>{t.optional}</span></label>
+              <input value={newBreakLabel} onChange={(e) => setNewBreakLabel(e.target.value)} placeholder={t.breakLabelPh} style={{ ...control, width: "100%" }} />
+            </div>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                if (!newBreakDate) { setError("Date is required."); return; }
+                run(() => addBreakAction(venue.id, newBreakDate, newBreakStart, newBreakEnd, newBreakLabel));
+                setNewBreakLabel("");
+              }}
+              style={{ height: 36, borderRadius: 7, border: "none", background: "var(--blue)", color: "#fff", fontWeight: 700, fontSize: 12.5, padding: "0 16px" }}
+            >
+              {t.addBreak}
+            </button>
+          </div>
+        )}
+
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead style={{ background: "#F8FAFB" }}>
+            <tr>
+              <th style={th}>{t.date}</th>
+              <th style={th}>{t.breakStart}</th>
+              <th style={th}>{t.breakEnd}</th>
+              <th style={th}>{t.breakLabelField}</th>
+              <th style={{ ...th, textAlign: "right" }}>{t.colActions}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedBreaks.length === 0 && (
+              <tr><td style={{ ...td, color: "#9AA7B2" }} colSpan={5}>{t.noBreaks}</td></tr>
+            )}
+            {sortedBreaks.map((b) => (
+              <tr key={b.id}>
+                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{b.dateDisplay}</td>
+                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{b.startTime}</td>
+                <td style={{ ...td, fontFamily: "var(--font-mono)" }}>{b.endTime}</td>
+                <td style={td}>{b.label || "—"}</td>
+                <td style={{ ...td, textAlign: "right" }}>
+                  {readOnly ? (
+                    <span style={{ color: "#9AA7B2" }}>—</span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => run(() => removeBreakAction(venue.id, b.id))}
+                      style={{ background: "none", border: "none", color: "#B3261E", fontWeight: 600, fontSize: 12 }}
+                    >
+                      {t.remove}
                     </button>
                   )}
                 </td>

@@ -17,6 +17,9 @@ export interface SlotDto {
   startMinutes: number;
   endMinutes: number;
   available: boolean;
+  /** Falls inside a configured break period (break slots item) — lets the
+   *  picker show a distinct reason from a merely already-held slot. */
+  onBreak: boolean;
 }
 
 export async function getSlots(
@@ -34,6 +37,7 @@ export async function getSlots(
       startMinutes: s.startMinutes,
       endMinutes: s.endMinutes,
       available: s.available,
+      onBreak: s.onBreak,
     })),
   };
 }

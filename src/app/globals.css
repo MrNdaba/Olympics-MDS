@@ -192,6 +192,24 @@ textarea {
   transform: translateY(0);
 }
 
+/* "Amended" badge (amend indicators item) — reuses .reason-tooltip's hover
+   bubble to list which fields changed, same interaction as the Cancelled
+   status chip's reason tooltip above. */
+.amended-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-weight: 600;
+  font-size: 10px;
+  background: var(--blue-tint-bg);
+  color: var(--blue-tint-text);
+  cursor: help;
+  text-decoration: underline dashed;
+  text-underline-offset: 2px;
+}
+
 /* Booking-type chip (labelled column everywhere, spec §11.2) */
 .type-chip {
   display: inline-flex;

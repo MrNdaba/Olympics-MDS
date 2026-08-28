@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireRole, assertVenueAccess } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { parseDakarDay, hmToMinutes } from "@/lib/time";
+import { parseDakarDay, hmToMinutes, rangesOverlap } from "@/lib/time";
 import { DEPARTMENTS, type Department } from "@/lib/constants";
 import { log } from "@/lib/logger";
 
@@ -90,6 +90,64 @@ export async function setBookingWindowAction(venueId: string, open: boolean): Pr
     data: { bookingWindowOpen: Boolean(open) },
   });
   log.info("vlm.booking_window", { by: user.id, venueId, open: Boolean(open) });
+  revalidatePath("/vlm/venue");
+  return { ok: true };
+}
+
+// ── Break periods (non-bookable windows within an open day) ───────────────────
+
+/** Add a break period to one operating day. The day must already be open;
+ *  the break must sit within its hours and not overlap an existing break. */
+export async function addBreakAction(
+  venueId: string,
+  dateIso: string,
+  startTime: string,
+  endTime: string,
+  label?: string,
+): Promise<Result> {
+  const user = await scopeVenue(venueId);
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return { ok: false, error: "Invalid date." };
+  if (!HM.test(startTime) || !HM.test(endTime)) return { ok: false, error: "Times must be HH:mm." };
+  const startMin = hmToMinutes(startTime);
+  const endMin = hmToMinutes(endTime);
+  if (startMin >= endMin) return { ok: false, error: "Break start must be before its end." };
+
+  const date = parseDakarDay(dateIso);
+  const operatingDay = await prisma.operatingDay.findUnique({
+    where: { venueId_date: { venueId, date } },
+    include: { breaks: true },
+  });
+  if (!operatingDay || !operatingDay.active) {
+    return { ok: false, error: "Set operating hours for this day before adding a break." };
+  }
+  if (startMin < hmToMinutes(operatingDay.openTime) || endMin > hmToMinutes(operatingDay.closeTime)) {
+    return { ok: false, error: "Break must fall within the day's operating hours." };
+  }
+  const overlapsExisting = operatingDay.breaks.some((b) =>
+    rangesOverlap(startMin, endMin, hmToMinutes(b.startTime), hmToMinutes(b.endTime)),
+  );
+  if (overlapsExisting) return { ok: false, error: "This break overlaps an existing one." };
+
+  await prisma.operatingDayBreak.create({
+    data: { operatingDayId: operatingDay.id, startTime, endTime, label: label?.trim() || null },
+  });
+  log.info("vlm.break_added", { by: user.id, venueId, date: dateIso, startTime, endTime });
+  revalidatePath("/vlm/venue");
+  return { ok: true };
+}
+
+/** Remove a break period. Scoped through its operating day's venue so a break
+ *  id can't be used to reach into another venue's schedule. */
+export async function removeBreakAction(venueId: string, breakId: string): Promise<Result> {
+  const user = await scopeVenue(venueId);
+  const brk = await prisma.operatingDayBreak.findFirst({
+    where: { id: breakId, operatingDay: { venueId } },
+  });
+  if (!brk) return { ok: false, error: "Not found." };
+
+  await prisma.operatingDayBreak.delete({ where: { id: breakId } });
+  log.info("vlm.break_removed", { by: user.id, venueId, breakId });
   revalidatePath("/vlm/venue");
   return { ok: true };
 }

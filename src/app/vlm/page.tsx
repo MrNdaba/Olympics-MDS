@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { runLifecycleSweep } from "@/lib/booking";
 import { ACTIVE_STATUSES, type BookingStatus } from "@/lib/constants";
 import { formatShortDate, formatWindow, parseDakarDay } from "@/lib/time";
+import { parseChangedFields } from "@/lib/audit";
 import { TopBar, type NavItem } from "@/components/TopBar";
 import { FilterBar } from "@/components/FilterBar";
 import { VlmBookingsTable, type VlmRow } from "@/components/VlmBookingsTable";
@@ -68,8 +69,14 @@ export default async function VlmPage({
         compound: true,
         gate: true,
         venue: true,
-        // Latest cancellation reason, if any, for the status-badge tooltip (item #5).
-        auditEntries: { where: { action: "cancelled" }, orderBy: { timestamp: "desc" }, take: 1 },
+        // Latest cancellation reason (item #5) and amendment history (amend
+        // indicators item) — ordered desc so the first match of each action
+        // in JS below is the most recent one.
+        auditEntries: {
+          where: { action: { in: ["cancelled", "amended"] } },
+          orderBy: { timestamp: "desc" },
+          take: 20,
+        },
       },
       orderBy,
       take: 200,
@@ -93,7 +100,8 @@ export default async function VlmPage({
     canValidate: b.status === "PendingValidation",
     canCancel: ACTIVE_STATUSES.includes(b.status as BookingStatus) && b.slotStart.getTime() > now,
     canReinstate: b.status === "Cancelled" && b.slotStart.getTime() > now,
-    cancelReason: b.auditEntries[0]?.reason ?? null,
+    cancelReason: b.auditEntries.find((a) => a.action === "cancelled")?.reason ?? null,
+    amendedFields: parseChangedFields(b.auditEntries.find((a) => a.action === "amended")?.detail),
   }));
 
   const venueLabel =

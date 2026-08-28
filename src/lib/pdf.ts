@@ -4,6 +4,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import { getDict, type Lang } from "./i18n";
 import { formatLongDate, hmOf } from "./time";
 import type { BookingStatus } from "./constants";
+import { translateAmendedFields } from "./audit";
 
 export interface ConfirmationData {
   reference: string;
@@ -28,6 +29,9 @@ export interface ConfirmationData {
   volumeM3?: number | null;
   comments?: string | null;
   createdAt: Date;
+  /** Changed-field names from the latest amendment, if any (amend indicators
+   *  item) — identity only, never old/new values. Omit/empty = never amended. */
+  amendedFields?: string[];
 }
 
 const BLUE = rgb(0, 120 / 255, 208 / 255);
@@ -145,6 +149,17 @@ export async function buildConfirmationPdf(data: ConfirmationData, lang: Lang): 
   y -= 20;
   page.drawText(data.reference, { x: margin, y, size: 18, font: monoBold, color: BLUE });
   y -= 24;
+  if (data.amendedFields && data.amendedFields.length > 0) {
+    const labels = translateAmendedFields(data.amendedFields, t).map(safe);
+    page.drawText(`${safe(t.amendedFieldsLabel)}: ${labels.join(", ")}`, {
+      x: margin,
+      y,
+      size: 9,
+      font: bold,
+      color: rgb(154 / 255, 100 / 255, 0),
+    });
+    y -= 16;
+  }
   page.drawLine({ start: { x: margin, y }, end: { x: W - margin, y }, thickness: 1, color: LINE });
   y -= 22;
 

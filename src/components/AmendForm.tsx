@@ -368,9 +368,10 @@ export function AmendForm({
                 const selected = sel.has(s.startMinutes);
                 const base: React.CSSProperties = { height: 32, borderRadius: 6, fontFamily: "var(--font-mono)", fontSize: 11, border: "1px solid #C7D1DA", background: "#fff", color: "var(--ink)" };
                 let st = base;
-                if (!s.available) st = { ...base, background: "#F4F6F8", border: "1px solid #E3E9EF", color: "#B6C0C9", textDecoration: "line-through", cursor: "not-allowed" };
+                if (s.onBreak) st = { ...base, background: "#FCF3E1", border: "1px solid #F2DDAE", color: "#9A6400", textDecoration: "line-through", cursor: "not-allowed" };
+                else if (!s.available) st = { ...base, background: "#F4F6F8", border: "1px solid #E3E9EF", color: "#B6C0C9", textDecoration: "line-through", cursor: "not-allowed" };
                 else if (selected) st = { ...base, background: "var(--blue)", color: "#fff", border: "1px solid var(--blue)", fontWeight: 600 };
-                return <button key={s.startMinutes} type="button" onClick={() => clickSlot(s)} style={st}>{minutesToHm(s.startMinutes)}</button>;
+                return <button key={s.startMinutes} type="button" onClick={() => clickSlot(s)} title={s.onBreak ? t.onBreakBadge : undefined} style={st}>{minutesToHm(s.startMinutes)}</button>;
               })}
             </div>
           )}

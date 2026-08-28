@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Dict } from "@/lib/i18n";
-import { StatusChip, TypeChip } from "./Chips";
+import { AmendedBadge, StatusChip, TypeChip } from "./Chips";
 import { ModalCloseButton } from "./ModalCloseButton";
 import { cancelMyBooking } from "@/app/supplier/actions";
 
@@ -19,6 +19,9 @@ export interface BookingRow {
   canCancel: boolean;
   /** Reason stored on the "cancelled" audit entry, if any (item #5). */
   cancelReason?: string | null;
+  /** Changed-field names from the latest "amended" audit entry, if any
+   *  (amend indicators item) — empty/undefined means never amended. */
+  amendedFields?: string[];
 }
 
 const th: React.CSSProperties = {
@@ -103,7 +106,8 @@ export function MyBookings({ t, rows }: { t: Dict; rows: BookingRow[] }) {
                   <td style={td}>{r.dateDisplay}</td>
                   <td style={{ ...td, ...mono }}>{r.window}</td>
                   <td style={td}>
-                    <StatusChip status={r.status} t={t} reason={r.cancelReason} />
+                    <StatusChip status={r.status} t={t} reason={r.cancelReason} />{" "}
+                    <AmendedBadge t={t} fields={r.amendedFields} />
                   </td>
                   <td style={td}>
                     {r.canCancel ? (

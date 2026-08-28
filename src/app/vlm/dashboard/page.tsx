@@ -94,7 +94,13 @@ export default async function VlmDashboard({
   const holdByStart = new Map(holds.map((h) => [h.slotStart.getTime(), h.booking.status]));
   const loadCells = grid.slots.map((s) => {
     const status = holdByStart.get(s.start.getTime());
-    const state = status === "Confirmed" ? "confirmed" : status === "PendingValidation" ? "pending" : "free";
+    const state = s.onBreak
+      ? "break"
+      : status === "Confirmed"
+        ? "confirmed"
+        : status === "PendingValidation"
+          ? "pending"
+          : "free";
     return { time: hmOf(s.start), state };
   });
   const bookedCount = loadCells.filter((c) => c.state !== "free").length;
@@ -223,7 +229,13 @@ export default async function VlmDashboard({
                       height: 34,
                       borderRadius: 4,
                       background:
-                        c.state === "confirmed" ? "var(--blue)" : c.state === "pending" ? "var(--st-pending-cell)" : "#E3E9EF",
+                        c.state === "confirmed"
+                          ? "var(--blue)"
+                          : c.state === "pending"
+                            ? "var(--st-pending-cell)"
+                            : c.state === "break"
+                              ? "#F2DDAE"
+                              : "#E3E9EF",
                     }}
                   />
                   <span className="mono" style={{ fontSize: 8.5, color: "#5A6B7C" }}>{c.time}</span>
@@ -257,6 +269,9 @@ export default async function VlmDashboard({
             <Legend color="var(--blue)" label={t.legBooked} />
             <Legend color="var(--st-pending-cell)" label={t.legPendingSlot} />
             {showSlotGrid && <Legend color="#E3E9EF" label={t.legFree} />}
+            {showSlotGrid && loadCells.some((c) => c.state === "break") && (
+              <Legend color="#F2DDAE" label={t.legBreak} />
+            )}
           </div>
         </div>
 

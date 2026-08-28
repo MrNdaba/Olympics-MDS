@@ -326,6 +326,18 @@ async function main() {
   }
   await prisma.referenceSequence.create({ data: { id: 1, value: refN } });
 
+  // Demo break period (break slots item): a lunch break at Dakar Arena on the
+  // same day as the first demo booking, clear of that booking's 09:00–10:00
+  // window so both render cleanly together.
+  const darLunchDay = await prisma.operatingDay.findUnique({
+    where: { venueId_date: { venueId: darId, date: utcDay(2026, 7, 20) } },
+  });
+  if (darLunchDay) {
+    await prisma.operatingDayBreak.create({
+      data: { operatingDayId: darLunchDay.id, startTime: "12:00", endTime: "13:00", label: "Lunch break" },
+    });
+  }
+
   console.log(
     `Seeded ${VENUES.length} venues, master data, users (admin@/vlm.dar@/viewer.dar@/supplier@mds.dev · Password1234!), and ${demo.length} demo bookings.`,
   );

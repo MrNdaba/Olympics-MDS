@@ -53,6 +53,14 @@ export function addDays(d: Date, days: number): Date {
   return new Date(d.getTime() + days * DAY_MS);
 }
 
+/** Whether two [start, end) minute ranges overlap (half-open, so touching
+ *  edges — e.g. one ending at 12:00 and the other starting at 12:00 — do not
+ *  count as an overlap). Shared by slot generation and booking validation
+ *  when checking a window against a venue's break periods. */
+export function rangesOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
+  return aStart < bEnd && aEnd > bStart;
+}
+
 /** Merged-window display, e.g. "10:00 → 11:30" (spec §9). */
 export function formatWindow(start: Date, end: Date): string {
   return `${hmOf(start)} → ${hmOf(end)}`;
