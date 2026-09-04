@@ -68,7 +68,7 @@ export function SettingsForm({
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
+    <div className="two-col-cards">
       {/* Password */}
       <div style={card}>
         <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>{t.changePassword}</h2>

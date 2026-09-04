@@ -224,20 +224,20 @@ export function AmendForm({
   };
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 384px", gap: 22, alignItems: "start" }}>
+    <div className="two-col-side">
       <div style={card}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div className="form-header-row">
           <div>
             <h2 style={{ fontWeight: 700, fontSize: 16 }}>{t.editBooking}</h2>
             <span className="mono" style={{ fontSize: 11.5, color: "var(--blue)" }}>{initial.reference}</span>
           </div>
-          <div style={{ display: "flex", gap: 8, width: 260 }}>
+          <div className="type-toggle">
             {typeBtn("delivery", t.delivery, "↓")}
             {typeBtn("collection", t.collection, "↑")}
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 18px" }}>
+        <div className="form-grid-2">
           <div>
             <label style={label}>{t.supplier}</label>
             <input readOnly value={supplierName} style={{ ...control, background: "#F4F6F8", border: "1px solid #E3E9EF", color: "#5A6B7C" }} />
@@ -273,7 +273,7 @@ export function AmendForm({
               {packTypes.map((v) => <option key={v} value={v}>{translateMasterData(v, lang)}</option>)}
             </select>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          <div className="qty-grid-3">
             <div><label style={label}>{t.qty} <RequiredMark t={t} /></label><input value={quantity} onChange={(e) => setQuantity(e.target.value)} style={control} /></div>
             <div><label style={label}>{t.weight}</label><input value={weightKg} onChange={(e) => setWeightKg(e.target.value)} inputMode="decimal" style={control} /></div>
             <div><label style={label}>{t.volume}</label><input value={volumeM3} onChange={(e) => setVolumeM3(e.target.value)} inputMode="decimal" style={control} /></div>
@@ -283,7 +283,7 @@ export function AmendForm({
         <div style={{ borderTop: "1px solid #EBF0F4", margin: "18px 0 14px" }} />
         <div style={{ fontWeight: 700, fontSize: 12.5, letterSpacing: ".04em", color: "#33475B", marginBottom: 12 }}>{t.whereWhen}</div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 18px" }}>
+        <div className="form-grid-2">
           <div>
             <label style={label}>{t.venue}</label>
             <select
@@ -363,7 +363,7 @@ export function AmendForm({
           ) : !slotState.open ? (
             <p style={{ fontSize: 12, color: "var(--st-cancelled-text)" }}>{t.closedDay}</p>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7 }}>
+            <div className="slot-grid">
               {slotState.slots.map((s) => {
                 const selected = sel.has(s.startMinutes);
                 const base: React.CSSProperties = { height: 32, borderRadius: 6, fontFamily: "var(--font-mono)", fontSize: 11, border: "1px solid #C7D1DA", background: "#fff", color: "var(--ink)" };

@@ -16,6 +16,7 @@ export function ModalCloseButton({
   return (
     <button
       type="button"
+      className="icon-btn"
       disabled={disabled}
       onClick={onClick}
       aria-label={label}

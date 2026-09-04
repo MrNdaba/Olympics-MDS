@@ -237,3 +237,239 @@ textarea {
     background: #fff;
   }
 }
+
+/* ============================================================
+   Responsive layout system
+   Breakpoints: tablet ≤1024px, phone ≤640px (design tokens:
+   control height 36 desktop / 44+ mobile — see design README).
+   ============================================================ */
+
+/* Two-column "form + side panel" layout (booking form, amend form):
+   flexible main card, fixed side column for slot-picker/summary.
+   Stacks to one column at tablet width and below. */
+.two-col-side {
+  display: grid;
+  grid-template-columns: 1fr 384px;
+  gap: 22px;
+  align-items: start;
+}
+@media (max-width: 1024px) {
+  .two-col-side {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Equal-width two-column field grid used throughout every form. */
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 18px;
+}
+@media (max-width: 560px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Qty / weight / volume row — three equal columns, one column on phones. */
+.qty-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 420px) {
+  .qty-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Slot-picker chip grid — 4 columns on desktop, fewer as space shrinks
+   (hit targets stay ≥ 44px tall via the mobile control rule below). */
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+}
+@media (max-width: 640px) {
+  .slot-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 420px) {
+  .slot-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Admin "create record" + "records table" split panels. */
+.admin-split {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 22px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .admin-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Dashboard status/summary card row. */
+.stat-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+@media (max-width: 760px) {
+  .stat-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 420px) {
+  .stat-grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Two equal cards side by side (dashboard split cards, settings panels). */
+.two-col-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .two-col-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Form header row (title + booking-type toggle) — wraps instead of
+   overflowing on narrow phones. */
+.form-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.form-header-row .type-toggle {
+  display: flex;
+  gap: 8px;
+  width: 260px;
+}
+@media (max-width: 480px) {
+  .form-header-row .type-toggle {
+    width: 100%;
+  }
+}
+
+/* Horizontal-scroll safety net for wide data tables — every table that
+   can't reasonably reflow keeps its columns intact and scrolls instead
+   of forcing the whole page wider than the viewport. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Login split card. */
+.login-card {
+  display: grid;
+  grid-template-columns: 460px 1fr;
+}
+@media (max-width: 480px) {
+  .login-page-wrap {
+    padding: 10px !important;
+  }
+}
+@media (max-width: 720px) {
+  .login-card {
+    grid-template-columns: 1fr;
+    min-height: auto !important;
+  }
+  .login-brand {
+    padding: 24px !important;
+  }
+  .login-form-col {
+    padding: 28px 22px !important;
+  }
+}
+
+/* Page main content padding, tightened on smaller viewports. */
+@media (max-width: 1024px) {
+  main {
+    padding: 18px !important;
+  }
+}
+@media (max-width: 640px) {
+  main {
+    padding: 12px !important;
+  }
+}
+
+/* Comfortable touch targets on phones (design tokens: control height 36
+   desktop / 44+ mobile) — clamps every form control & button without
+   having to touch each component's inline height individually; min-height
+   only ever grows a control, never shrinks one that's already taller. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea,
+  button {
+    min-height: 44px;
+  }
+  /* Small square icon buttons (modal close ✕, etc.) opt out — stretching
+     them to 44px tall while staying narrow looks broken. */
+  .icon-btn {
+    min-height: 28px;
+  }
+}
+
+/* ---------- Top bar ---------- */
+.topbar {
+  height: 56px;
+  background: #fff;
+  border-bottom: 1px solid var(--border-card);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 20px;
+}
+.topbar-toggle {
+  display: none;
+  margin-left: auto;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 7px;
+  border: 1px solid var(--border-control);
+  background: #fff;
+  color: var(--label);
+  flex-shrink: 0;
+}
+@media (max-width: 1024px) {
+  .topbar-nav-desktop,
+  .topbar-actions-desktop {
+    display: none;
+  }
+  .topbar-toggle {
+    display: inline-flex;
+  }
+  .topbar-brand-sub {
+    display: none;
+  }
+}
+.topbar-mobile-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px 16px;
+  background: #fff;
+  border-bottom: 1px solid var(--border-card);
+}
+.topbar-mobile-panel a,
+.topbar-mobile-panel button {
+  text-align: left;
+}

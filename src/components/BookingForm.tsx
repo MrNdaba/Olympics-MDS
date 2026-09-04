@@ -281,18 +281,18 @@ export function BookingForm({
   };
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 384px", gap: 22, alignItems: "start" }}>
+    <div className="two-col-side">
       {/* Form card */}
       <div style={card}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div className="form-header-row">
           <h2 style={{ fontWeight: 700, fontSize: 16 }}>{t.newBooking}</h2>
-          <div style={{ display: "flex", gap: 8, width: 260 }}>
+          <div className="type-toggle">
             {typeBtn("delivery", t.delivery, "↓")}
             {typeBtn("collection", t.collection, "↑")}
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 18px" }}>
+        <div className="form-grid-2">
           <div>
             <label style={label}>{t.supplier}</label>
             <input
@@ -347,7 +347,7 @@ export function BookingForm({
               ))}
             </select>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          <div className="qty-grid-3">
             <div>
               <label style={label}>
                 {t.qty} <RequiredMark t={t} />
@@ -370,7 +370,7 @@ export function BookingForm({
           {t.whereWhen}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 18px" }}>
+        <div className="form-grid-2">
           <div>
             <label style={label}>{t.venue}</label>
             <select
@@ -483,7 +483,7 @@ export function BookingForm({
           ) : !slotState.open ? (
             <p style={{ fontSize: 12, color: "var(--st-cancelled-text)" }}>{t.closedDay}</p>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7 }}>
+            <div className="slot-grid">
               {slotState.slots.map((s) => {
                 const selected = sel.has(s.startMinutes);
                 const base: React.CSSProperties = {

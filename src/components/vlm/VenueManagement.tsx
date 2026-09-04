@@ -195,7 +195,7 @@ export function VenueManagement({
       {error && <p style={{ color: "var(--st-cancelled-text)", fontSize: 12.5 }}>{error}</p>}
 
       {/* Booking window + slot duration */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+      <div className="two-col-cards">
         <div style={card}>
           <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{t.bookingWindow}</h2>
           <p style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 14 }}>{t.bookingWindowNote}</p>
@@ -260,6 +260,7 @@ export function VenueManagement({
           </label>
         </div>
 
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead style={{ background: "#F8FAFB" }}>
             <tr>
@@ -320,6 +321,7 @@ export function VenueManagement({
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Day editor — pick a date (existing or new) to configure its hours
@@ -457,6 +459,7 @@ export function VenueManagement({
           </div>
         )}
 
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead style={{ background: "#F8FAFB" }}>
             <tr>
@@ -495,10 +498,11 @@ export function VenueManagement({
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Compound & gate maintenance (§8, §15.5) */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+      <div className="two-col-cards">
         <div style={card}>
           <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{t.compounds}</h2>
           <p style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 14 }}>{t.compoundsNote}</p>
@@ -532,6 +536,7 @@ export function VenueManagement({
             </div>
           )}
 
+          <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ background: "#F8FAFB" }}>
               <tr>
@@ -566,6 +571,7 @@ export function VenueManagement({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
 
         <div style={card}>
@@ -593,6 +599,7 @@ export function VenueManagement({
             </div>
           )}
 
+          <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ background: "#F8FAFB" }}>
               <tr>
@@ -625,6 +632,7 @@ export function VenueManagement({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 

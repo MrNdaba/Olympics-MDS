@@ -194,7 +194,7 @@ export default async function VlmDashboard({
           </a>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+        <div className="stat-grid-4">
           {statusCard(counts.Confirmed, t.stConfirmedPl, "var(--st-confirmed)")}
           {statusCard(counts.PendingValidation, t.stPendingPl, "var(--st-pending)")}
           {statusCard(counts.Cancelled, t.stCancelledPl, "var(--st-cancelled)")}
@@ -275,7 +275,7 @@ export default async function VlmDashboard({
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+        <div className="two-col-cards">
           <div style={cardStyle}>
             <h2 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{t.typeSplit}</h2>
             <div style={{ height: 14, borderRadius: 7, overflow: "hidden", display: "flex", background: "#EBF0F4" }}>
@@ -322,52 +322,56 @@ export default async function VlmDashboard({
             periodLoad.length === 0 ? (
               <p style={{ fontSize: 12, color: "#9AA7B2" }}>{t.noBookings}</p>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    <th style={tableHead}>{t.colDate}</th>
-                    <th style={tableHead}>{t.total}</th>
-                    <th style={tableHead}>{t.stConfirmedPl}</th>
-                    <th style={tableHead}>{t.stPendingPl}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {periodLoad.map((bucket) => (
-                    <tr key={bucket.iso}>
-                      <td style={tableCell}>{bucket.iso}</td>
-                      <td style={tableCell}>{bucket.total}</td>
-                      <td style={tableCell}>{bucket.confirmed}</td>
-                      <td style={tableCell}>{bucket.pending}</td>
+              <div className="table-scroll">
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={tableHead}>{t.colDate}</th>
+                      <th style={tableHead}>{t.total}</th>
+                      <th style={tableHead}>{t.stConfirmedPl}</th>
+                      <th style={tableHead}>{t.stPendingPl}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {periodLoad.map((bucket) => (
+                      <tr key={bucket.iso}>
+                        <td style={tableCell}>{bucket.iso}</td>
+                        <td style={tableCell}>{bucket.total}</td>
+                        <td style={tableCell}>{bucket.confirmed}</td>
+                        <td style={tableCell}>{bucket.pending}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )
           ) : slotRows.length === 0 ? (
             <p style={{ fontSize: 12, color: "#9AA7B2" }}>{t.noBookings}</p>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={tableHead}>{t.colDate}</th>
-                  <th style={tableHead}>{t.colVenue}</th>
-                  <th style={tableHead}>{t.colWindow}</th>
-                  <th style={tableHead}>{t.slotBookingCount}</th>
-                  <th style={tableHead}>{t.activeSlotCount}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {slotRows.map((row) => (
-                  <tr key={`${row.dateIso}-${row.venueLabel}-${row.window}`}>
-                    <td style={tableCell}>{row.dateIso}</td>
-                    <td style={tableCell}>{row.venueLabel}</td>
-                    <td style={tableCell}>{row.window}</td>
-                    <td style={tableCell}>{row.count}</td>
-                    <td style={tableCell}>{row.active}</td>
+            <div className="table-scroll">
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={tableHead}>{t.colDate}</th>
+                    <th style={tableHead}>{t.colVenue}</th>
+                    <th style={tableHead}>{t.colWindow}</th>
+                    <th style={tableHead}>{t.slotBookingCount}</th>
+                    <th style={tableHead}>{t.activeSlotCount}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {slotRows.map((row) => (
+                    <tr key={`${row.dateIso}-${row.venueLabel}-${row.window}`}>
+                      <td style={tableCell}>{row.dateIso}</td>
+                      <td style={tableCell}>{row.venueLabel}</td>
+                      <td style={tableCell}>{row.window}</td>
+                      <td style={tableCell}>{row.count}</td>
+                      <td style={tableCell}>{row.active}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </main>

@@ -199,7 +199,7 @@ export function UsersAdmin({
     s === "active" ? t.statusActive : s === "locked" ? t.statusLocked : t.statusDeactivated;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "360px 1fr", gap: 22, alignItems: "start" }}>
+    <div className="admin-split">
       {/* Create user */}
       <div style={card}>
         <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>{t.newUser}</h2>
@@ -269,6 +269,7 @@ export function UsersAdmin({
             </select>
           </label>
         </div>
+        <div className="table-scroll">
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead style={{ background: "#F8FAFB" }}>
             <tr>
@@ -309,6 +310,7 @@ export function UsersAdmin({
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Edit user modal */}
@@ -317,7 +319,7 @@ export function UsersAdmin({
           onClick={() => setEditing(null)}
           style={{ position: "fixed", inset: 0, background: "rgba(15,23,32,.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}
         >
-          <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: 420, maxHeight: "90vh", overflowY: "auto" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: 420, maxWidth: "92vw", maxHeight: "90vh", overflowY: "auto" }}>
             <h2 style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{t.editUser}</h2>
             <p style={{ fontSize: 11.5, color: "#5A6B7C", fontFamily: "var(--font-mono)", marginBottom: 14 }}>{editing.email}</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

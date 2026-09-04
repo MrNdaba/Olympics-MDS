@@ -130,14 +130,14 @@ export default async function VlmPage({
     <div style={{ minHeight: "100vh" }}>
       <TopBar user={user} lang={lang} t={t} nav={nav} subtitle={venueLabel} />
       <main style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, maxWidth: 1360, margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
           <div>
             <h1 style={{ fontSize: 18, fontWeight: 700 }}>
               {t.vlmTitle} — {venueLabel}
             </h1>
             <p style={{ fontSize: 11.5, color: "var(--text-secondary)" }}>{t.vlmSub}</p>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <a
               href={`/vlm/daily${dailyQs ? `?${dailyQs}` : ""}`}
               style={{ border: "1px solid #C7D1DA", borderRadius: 7, padding: "8px 12px", fontSize: 12, fontWeight: 600, color: "#33475B", background: "#fff" }}

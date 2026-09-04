@@ -11,15 +11,18 @@ export default async function LoginPage() {
 
   return (
     <div
+      className="login-page-wrap"
       style={{
         minHeight: "100vh",
         background: "var(--bg-canvas)",
-        display: "grid",
-        placeItems: "center",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         padding: 24,
       }}
     >
       <div
+        className="login-card"
         style={{
           width: 1060,
           maxWidth: "100%",
@@ -27,13 +30,12 @@ export default async function LoginPage() {
           background: "#fff",
           borderRadius: 14,
           overflow: "hidden",
-          display: "grid",
-          gridTemplateColumns: "460px 1fr",
           boxShadow: "0 24px 60px rgba(18,32,46,.16)",
         }}
       >
         {/* Left brand panel */}
         <aside
+          className="login-brand"
           style={{
             background: "var(--blue)",
             padding: 40,
@@ -84,7 +86,7 @@ export default async function LoginPage() {
         </aside>
 
         {/* Right form column */}
-        <section style={{ padding: "40px 48px", display: "flex", flexDirection: "column" }}>
+        <section className="login-form-col" style={{ padding: "40px 48px", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <LangSwitcher lang={lang} />
           </div>
