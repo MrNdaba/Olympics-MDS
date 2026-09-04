@@ -40,7 +40,7 @@ export function TopBar({
   const roleText = roleKey ? t[roleKey] : subtitle ?? user.role.toUpperCase();
 
   const navLinkStyle = (active: boolean): React.CSSProperties => ({
-    padding: "6px 12px",
+    padding: "6px 9px",
     borderRadius: 7,
     fontSize: 12.5,
     fontWeight: active ? 600 : 500,
@@ -78,7 +78,7 @@ export function TopBar({
           </div>
         </div>
 
-        <nav className="topbar-nav-desktop" style={{ display: "flex", gap: 4, marginLeft: 10 }}>
+        <nav className="topbar-nav-desktop">
           {nav.map((item) => (
             <Link key={item.href} href={item.href} style={navLinkStyle(item.active)}>
               {item.label}
@@ -86,10 +86,7 @@ export function TopBar({
           ))}
         </nav>
 
-        <div
-          className="topbar-actions-desktop"
-          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}
-        >
+        <div className="topbar-actions-desktop">
           {liveBadge && <LiveBadge t={t} />}
           <LangSwitcher lang={lang} />
           <Link href="/help" title={t.help} style={iconLinkStyle}>
@@ -124,7 +121,7 @@ export function TopBar({
               <LiveBadge t={t} />
             </div>
           )}
-          <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 4px 12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 4px 12px", minWidth: 0 }}>
             <UserBadge user={user} roleText={roleText} />
           </div>
           {nav.map((item) => (
@@ -193,9 +190,15 @@ function LiveBadge({ t }: { t: Dict }) {
   );
 }
 
+const truncate: React.CSSProperties = {
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
 function UserBadge({ user, roleText }: { user: SessionUser; roleText: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
       <span
         style={{
           width: 30,
@@ -212,9 +215,12 @@ function UserBadge({ user, roleText }: { user: SessionUser; roleText: string }) 
       >
         {user.name.slice(0, 1).toUpperCase()}
       </span>
-      <div style={{ lineHeight: 1.15 }}>
-        <div style={{ fontWeight: 600, fontSize: 12 }}>{user.name}</div>
-        <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>{roleText}</div>
+      {/* min-width:0 lets this shrink inside a flex row instead of pushing
+          the header wider — a long name/venue label would otherwise force
+          horizontal overflow, especially at the 320px small-phone floor. */}
+      <div style={{ lineHeight: 1.15, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: 12, ...truncate }}>{user.name}</div>
+        <div style={{ fontSize: 10, color: "var(--text-secondary)", ...truncate }}>{roleText}</div>
       </div>
     </div>
   );

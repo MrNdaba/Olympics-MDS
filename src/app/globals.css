@@ -240,8 +240,20 @@ textarea {
 
 /* ============================================================
    Responsive layout system
-   Breakpoints: tablet ≤1024px, phone ≤640px (design tokens:
-   control height 36 desktop / 44+ mobile — see design README).
+
+   Tiers are anchored to the platform's standard mobile viewport range
+   rather than arbitrary round numbers:
+     - Mobile:   320px (small-phone floor) – 430px (large-phone
+                 ceiling; 375px is the reference/base phone width —
+                 iPhone SE/8 through 14/15 Pro Max all fall in
+                 320–430). Single-column layouts, 44px+ touch targets.
+     - Tablet:   431px – 1024px. Two-column forms fit comfortably;
+                 fixed-width side panels (booking summary, admin
+                 create-forms) still don't, so those collapse here too.
+     - Desktop:  > 1024px.
+   The one exception is the top bar's own nav/actions row, which
+   needs more raw width than 1024px gives it — see its own comment
+   below for the measured number.
    ============================================================ */
 
 /* Two-column "form + side panel" layout (booking form, amend form):
@@ -265,7 +277,7 @@ textarea {
   grid-template-columns: 1fr 1fr;
   gap: 14px 18px;
 }
-@media (max-width: 560px) {
+@media (max-width: 430px) {
   .form-grid-2 {
     grid-template-columns: 1fr;
   }
@@ -277,27 +289,23 @@ textarea {
   grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
 }
-@media (max-width: 420px) {
+@media (max-width: 430px) {
   .qty-grid-3 {
     grid-template-columns: 1fr;
   }
 }
 
-/* Slot-picker chip grid — 4 columns on desktop, fewer as space shrinks
-   (hit targets stay ≥ 44px tall via the mobile control rule below). */
+/* Slot-picker chip grid. Matches the design's dedicated mobile mockup
+   (390px frame, 3-col chips) exactly: 3 columns for the whole phone
+   range, 4 once there's tablet/desktop room. */
 .slot-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 7px;
 }
-@media (max-width: 640px) {
+@media (max-width: 430px) {
   .slot-grid {
     grid-template-columns: repeat(3, 1fr);
-  }
-}
-@media (max-width: 420px) {
-  .slot-grid {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -308,7 +316,7 @@ textarea {
   gap: 22px;
   align-items: start;
 }
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .admin-split {
     grid-template-columns: 1fr;
   }
@@ -320,12 +328,12 @@ textarea {
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
 }
-@media (max-width: 760px) {
+@media (max-width: 1024px) {
   .stat-grid-4 {
     grid-template-columns: repeat(2, 1fr);
   }
 }
-@media (max-width: 420px) {
+@media (max-width: 430px) {
   .stat-grid-4 {
     grid-template-columns: 1fr;
   }
@@ -338,7 +346,7 @@ textarea {
   gap: 18px;
   align-items: start;
 }
-@media (max-width: 760px) {
+@media (max-width: 430px) {
   .two-col-cards {
     grid-template-columns: 1fr;
   }
@@ -359,7 +367,7 @@ textarea {
   gap: 8px;
   width: 260px;
 }
-@media (max-width: 480px) {
+@media (max-width: 430px) {
   .form-header-row .type-toggle {
     width: 100%;
   }
@@ -378,7 +386,7 @@ textarea {
   display: grid;
   grid-template-columns: 460px 1fr;
 }
-@media (max-width: 480px) {
+@media (max-width: 430px) {
   .login-page-wrap {
     padding: 10px !important;
   }
@@ -402,17 +410,18 @@ textarea {
     padding: 18px !important;
   }
 }
-@media (max-width: 640px) {
+@media (max-width: 430px) {
   main {
     padding: 12px !important;
   }
 }
 
 /* Comfortable touch targets on phones (design tokens: control height 36
-   desktop / 44+ mobile) — clamps every form control & button without
-   having to touch each component's inline height individually; min-height
-   only ever grows a control, never shrinks one that's already taller. */
-@media (max-width: 640px) {
+   desktop&tablet / 44+ mobile) — clamps every form control & button
+   without having to touch each component's inline height individually;
+   min-height only ever grows a control, never shrinks one that's
+   already taller. */
+@media (max-width: 430px) {
   input,
   select,
   textarea,
@@ -433,8 +442,27 @@ textarea {
   border-bottom: 1px solid var(--border-card);
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 0 20px;
+  gap: 10px;
+  padding: 0 18px;
+}
+/* Base (desktop) layout for the nav links and the right-hand action
+   cluster. These MUST live here, not as inline styles on the elements
+   themselves — an inline `display` would outrank the `display: none`
+   in the media query below regardless of specificity, which is
+   exactly the bug that let both the full nav row and the hamburger
+   render at once on every screen narrower than the breakpoint. */
+.topbar-nav-desktop {
+  display: flex;
+  gap: 2px;
+  margin-left: 6px;
+  min-width: 0;
+}
+.topbar-actions-desktop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  min-width: 0;
 }
 .topbar-toggle {
   display: none;
@@ -449,7 +477,17 @@ textarea {
   color: var(--label);
   flex-shrink: 0;
 }
-@media (max-width: 1024px) {
+/* This is deliberately NOT the 1024px tablet breakpoint used elsewhere
+   in this file — the nav/actions row needs more raw horizontal room
+   than that. Measured directly (headless-browser, worst case: Admin
+   role's 5-item French nav + the dashboard's live-update badge + a
+   two-word user name): the row wraps onto a second line — clipped by
+   the fixed-height header — anywhere below ~1461px, a width common
+   laptop screens sit under (1366/1440 included). 1480px leaves a
+   ~20px margin for cross-browser font-metric differences. Below it,
+   the hamburger panel is used instead of ever risking a wrapped or
+   clipped header. */
+@media (max-width: 1480px) {
   .topbar-nav-desktop,
   .topbar-actions-desktop {
     display: none;
